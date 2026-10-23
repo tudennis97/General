@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>你怎麼去學校？上學路線遊戲</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+/* Layout: 單欄 — 學生資料列、遊戲畫面（地圖＋右側儀表板，題目卡浮在畫面上）、觸控鍵、課文參考區 */
+:root{
+  --bg:#eaf3f7; --paper:#ffffff; --ink:#1d2b36; --muted:#5d6f7c; --line:#c9d9e2;
+  --bus:#ffb400; --go:#2f9e5b; --stop:#d9453b; --sky:#2b7fc1;
+  --cat-word:#f08a24; --cat-char:#16958a; --cat-sent:#7b55c7;
+  --kai:"LXGW WenKai TC","BiauKai","DFKai-SB","KaiTi","STKaiti",serif;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+.wrap{max-width:660px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
+header h1{margin:0;font-family:var(--kai);font-weight:700;font-size:2rem;line-height:1.2;letter-spacing:.04em}
+header h1 span{display:inline-block;background:var(--bus);padding:0 .25em;border-radius:6px;margin-left:.1em}
+header p{margin:0;color:var(--muted);font-size:.9rem}
+
+.who{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.fields{display:grid;grid-template-columns:2fr 1fr 1.4fr auto;gap:8px;align-items:end}
+.fields label{display:flex;flex-direction:column;font-size:.78rem;color:var(--muted);gap:3px;min-width:0}
+.fields input{font:inherit;font-size:1rem;color:var(--ink);background:#f6fafc;border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%;min-width:0}
+.fields input:focus{outline:2px solid var(--sky);outline-offset:1px}
+.opts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.86rem;color:var(--muted)}
+.opts label{display:flex;align-items:center;gap:5px;cursor:pointer}
+@media (max-width:560px){.fields{grid-template-columns:1fr 1fr}.fields label.school{grid-column:1/-1}.fields .start{grid-column:1/-1}}
+
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 14px}
+button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+button.primary{background:var(--go);border-color:var(--go);color:#fff;font-weight:700}
+button.primary:hover{filter:brightness(1.07)}
+button.ghost{background:transparent}
+
+.screen{position:relative;border-radius:12px;overflow:hidden;background:#0a0e19;box-shadow:0 10px 30px rgba(20,40,60,.25)}
+canvas{display:block;width:100%;height:auto;aspect-ratio:600/640;touch-action:none}
+#ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(14,26,38,.55)}
+#ov[hidden]{display:none!important}
+.card{background:var(--paper);border-radius:14px;width:min(440px,100%);max-height:100%;overflow:auto;padding:18px 18px 16px;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.card h2{margin:0;font-family:var(--kai);font-size:1.7rem;line-height:1.25;text-wrap:balance}
+.card h3{margin:0;font-family:var(--kai);font-size:1.35rem;line-height:1.4;text-wrap:balance}
+.card p{margin:0}
+.bubble{background:#fff6dc;border:2px solid var(--bus);border-radius:12px;padding:10px 14px;font-family:var(--kai);font-size:1.3rem;line-height:1.7}
+.bubble mark{background:#ffe08a;color:inherit;border-radius:3px;padding:0 2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.say{font-size:.85rem;padding:4px 10px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:2px solid var(--line);border-radius:12px;background:#f9fcfd;font-family:var(--kai);font-size:1.25rem}
+.mode svg{width:84px;height:46px}
+.mode:hover{border-color:var(--sky)}
+.mode.bad{border-color:var(--stop);background:#fdecea;animation:shake .35s}
+.mode.good{border-color:var(--go);background:#e6f6ec}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.mode.bad{animation:none}}
+.chip{align-self:flex-start;color:#fff;font-weight:700;font-size:.82rem;border-radius:999px;padding:2px 12px;letter-spacing:.08em}
+.chip.詞{background:var(--cat-word)}.chip.字{background:var(--cat-char)}.chip.句{background:var(--cat-sent)}
+.prompt{font-family:var(--kai);font-size:1.45rem;line-height:1.6}
+.prompt .big{font-size:2.2rem;letter-spacing:.1em}
+.prompt .zy{font-family:var(--sans);font-size:1.5rem;letter-spacing:.15em}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choices.long{grid-template-columns:1fr}
+.choice{font-family:var(--kai);font-size:1.45rem;padding:9px 8px;border:2px solid var(--line);border-radius:10px;background:#f9fcfd;display:flex;flex-direction:column;align-items:center;line-height:1.3}
+.choices.long .choice{font-size:1.2rem;align-items:flex-start;text-align:left}
+.choice small{font-family:var(--sans);font-size:.75rem;color:var(--muted);letter-spacing:.1em}
+.choice .k{font-family:var(--sans);font-size:.7rem;color:var(--muted);align-self:flex-start}
+.choice:hover{border-color:var(--sky)}
+.choice.good{border-color:var(--go);background:#e6f6ec}
+.choice.bad{border-color:var(--stop);background:#fdecea}
+.choice:disabled{cursor:default}
+.fb{font-weight:700;min-height:1.6em}
+.fb.ok{color:var(--go)}.fb.no{color:var(--stop)}
+.slot{min-height:3rem;border:2px dashed var(--line);border-radius:10px;padding:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tray{display:flex;flex-wrap:wrap;gap:6px}
+.tok{font-family:var(--kai);font-size:1.3rem;padding:4px 12px;border-radius:8px;border:2px solid var(--cat-sent);background:#f3eefc}
+.tok[disabled]{opacity:.25}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat div{background:#f3f8fb;border-radius:10px;padding:8px;text-align:center}
+.stat b{display:block;font-size:1.35rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.75rem;color:var(--muted)}
+.wronglist{margin:0;padding-left:1.2em;font-size:.92rem;color:var(--muted)}
+.wronglist b{color:var(--ink);font-family:var(--kai);font-size:1.05rem}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(20,30,40,.88);color:#fff;font-weight:700;
+  padding:6px 16px;border-radius:999px;font-size:.95rem;pointer-events:none;white-space:nowrap;max-width:90%}
+#toast[hidden]{display:none!important}
+
+.pad{display:none;justify-content:center;gap:14px;user-select:none;-webkit-user-select:none}
+.dpad{display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,56px);gap:5px}
+.dpad button{font-size:1.4rem;padding:0;touch-action:none;background:var(--paper)}
+.dpad button:active{background:var(--line)}
+.u{grid-column:2;grid-row:1}.l{grid-column:1;grid-row:2}.r{grid-column:3;grid-row:2}.d{grid-column:2;grid-row:3}
+@media (pointer:coarse){.pad{display:flex}.keys{display:none}}
+.under{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;font-size:.86rem;color:var(--muted)}
+kbd{font-family:var(--sans);font-size:.78rem;background:var(--paper);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:0 6px;color:var(--ink)}
+.sync{font-size:.88rem;color:var(--muted);min-height:1.4em}
+.sync.ok{color:var(--go)}.sync.bad{color:var(--stop)}.sync.busy{color:var(--sky)}
+
+details.box{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+details.box summary{cursor:pointer;padding:10px 14px;font-weight:700}
+details.box .body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}
+td.w{font-family:var(--kai);font-size:1.2rem}
+td.n,td.sc{font-variant-numeric:tabular-nums;text-align:right}
+.text p{margin:0;font-family:var(--kai);font-size:1.2rem}
+.text .sp{color:var(--sky);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.hz{display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-family:var(--kai);font-size:1.6rem;line-height:1.2}
+.hz small{font-family:var(--sans);font-size:.7rem;color:var(--muted)}
+ol.pat{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+ol.pat b{font-family:var(--kai);font-size:1.15rem}
+ol.pat span{display:block;font-family:var(--kai);font-size:1.05rem;color:var(--muted)}
+.hint{font-size:.85rem;color:var(--muted);margin:0}
+footer{font-size:.78rem;color:var(--muted);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>你怎麼去<span>學校</span>？</h1>
+    <p>學華語向前走　第十一課　交通工具上學任務</p>
+  </header>
+
+  <section class="who" aria-label="學生資料">
+    <div class="fields">
+      <label class="school" for="f-school">學校<input id="f-school" autocomplete="organization"></label>
+      <label for="f-class">班級<input id="f-class"></label>
+      <label for="f-name">姓名<input id="f-name" autocomplete="name" placeholder="請輸入姓名"></label>
+      <button class="primary start" id="btn-start" type="button">開始遊戲</button>
+    </div>
+    <div class="opts">
+      <label for="o-zy"><input type="checkbox" id="o-zy" checked> 選項顯示注音提示</label>
+      <label for="o-tts"><input type="checkbox" id="o-tts" checked> 自動朗讀任務</label>
+      <label for="o-sfx"><input type="checkbox" id="o-sfx" checked> 音效</label>
+    </div>
+  </section>
+
+  <div class="screen">
+    <canvas id="cv" width="600" height="640" aria-label="上學路線地圖"></canvas>
+    <div id="ov"></div>
+    <div id="toast" hidden></div>
+  </div>
+
+  <div class="pad" id="pad">
+    <div class="dpad">
+      <button class="u" data-d="0" aria-label="上">▲</button>
+      <button class="l" data-d="3" aria-label="左">◀</button>
+      <button class="r" data-d="1" aria-label="右">▶</button>
+      <button class="d" data-d="2" aria-label="下">▼</button>
+    </div>
+  </div>
+  <div class="under">
+    <span class="keys"><kbd>←↑→↓</kbd> 或 <kbd>WASD</kbd> 轉彎　題目可按 <kbd>1</kbd>–<kbd>4</kbd> 作答</span>
+    <button class="ghost" id="btn-quit" type="button" hidden>結束並送出成績</button>
+  </div>
+  <p class="sync" id="sync"></p>
+
+  <details class="box" id="lb-box">
+    <summary>班級排行榜（讀取試算表）</summary>
+    <div class="body">
+      <p class="hint" id="lb-msg">展開後會從試算表讀取每個人的最高分。</p>
+      <div class="scroll"><table id="lb-table"></table></div>
+    </div>
+  </details>
+
+  <details class="box">
+    <summary>成績上傳</summary>
+    <div class="body">
+      <p class="hint">每次玩完會自動把成績寫進老師的 Google 試算表。沒有網路時成績會先存在這台裝置，連上網後按「補傳待上傳成績」。</p>
+      <div class="row"><button id="btn-test" type="button">測試連線</button><button id="btn-flush" type="button">補傳待上傳成績</button></div>
+    </div>
+  </details>
+
+  <details class="box">
+    <summary>課文</summary>
+    <div class="body text" id="lesson-text"></div>
+  </details>
+  <details class="box">
+    <summary>生詞／短語（13）</summary>
+    <div class="body"><div class="scroll"><table id="vocab-table"></table></div></div>
+  </details>
+  <details class="box">
+    <summary>習寫漢字、認讀漢字與句型</summary>
+    <div class="body">
+      <p class="hint">習寫漢字（筆畫／部首）</p><div class="chips" id="hanzi-chips"></div>
+      <p class="hint">認讀漢字</p><div class="chips" id="read-chips"></div>
+      <p class="hint">句型</p>
+      <ol class="pat">
+        <li><b>平常</b> usually<span>你平常怎麼去學校？</span></li>
+        <li><b>怎麼</b> how?<span>你怎麼去？　我騎自行車去。</span></li>
+        <li><b>……想……</b> to want<span>我今天想坐校車。　我想騎自行車去學校。</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <footer>
+    教材依據：僑務委員會《學華語向前走》第十一課〈你怎麼去學校？〉，課文、生詞、習寫漢字與句型取自課本。<br>
+    本檔為單一 HTML 檔，可直接放進 GitHub Pages，或下載到電腦（雲端硬碟同步資料夾）用瀏覽器開啟。
+    連網時會載入字型、查詢 IP 位址（api.ipify.org），並把成績送到老師的 Google 試算表；離線也能玩。
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   〇、Google 試算表設定
+   ENDPOINT：貼上 Apps Script「網頁應用程式」網址（結尾是 /exec）。留空＝不上傳。
+   TOKEN：通行碼，必須和 Code.gs 裡的 TOKEN 一字不差；兩邊都留空則不檢查。
+   ============================================================ */
+var ENDPOINT = "https://script.google.com/macros/s/AKfycbwS4t3Z4q5TZ_GslFz5BWt4rSUTwnyaYX-zpdkfjI_HUhTngJqeFc17C9_YwaP-epo9Bg/exec";
+var TOKEN = "";
+
+var DEFAULT_SCHOOL = "布理斯本亞洲語文學校";
+var DEFAULT_CLASS = "1B";
+var LESSON = "第十一課 你怎麼去學校？";
+var LS = {sc:"g2s-school", cl:"g2s-class", nm:"g2s-name", q:"g2s-queue", opt:"g2s-opt"};
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v===null?d:v; }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+var $ = function(id){ return document.getElementById(id); };
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+/* ============================================================
+   一、課本內容
+   ============================================================ */
+var TEXT = [
+  ["心美","東明，你平常怎麼去學校？"],
+  ["東明","我坐校車，你呢？"],
+  ["心美","我家很遠，媽媽開車送我去。"],
+  ["東明","大文呢？"],
+  ["大文","我家很近，我走路去，可是我想騎自行車去。"]
+];
+var WORDS = [
+  {n:1, w:"平常", z:"ㄆㄧㄥˊ ㄔㄤˊ", p:"píng cháng", e:"usually"},
+  {n:2, w:"坐", z:"ㄗㄨㄛˋ", p:"zuò", e:"to sit"},
+  {n:3, w:"開車", z:"ㄎㄞ ㄔㄜ", p:"kāi chē", e:"to drive"},
+  {n:4, w:"走路", z:"ㄗㄡˇ ㄌㄨˋ", p:"zǒu lù", e:"to walk"},
+  {n:5, w:"送", z:"ㄙㄨㄥˋ", p:"sòng", e:"to send, to deliver"},
+  {n:6, w:"校車", z:"ㄒㄧㄠˋ ㄔㄜ", p:"xiào chē", e:"school bus"},
+  {n:7, w:"怎麼", z:"ㄗㄣˇ ˙ㄇㄜ", p:"zěn me", e:"how? why?"},
+  {n:8, w:"想", z:"ㄒㄧㄤˇ", p:"xiǎng", e:"to want, to think"},
+  {n:9, w:"學校", z:"ㄒㄩㄝˊ ㄒㄧㄠˋ", p:"xué xiào", e:"school"},
+  {n:10, w:"自行車", z:"ㄗˋ ㄒㄧㄥˊ ㄔㄜ", p:"zì xíng chē", e:"bicycle"},
+  {n:11, w:"近", z:"ㄐㄧㄣˋ", p:"jìn", e:"close, near"},
+  {n:12, w:"騎", z:"ㄑㄧˊ", p:"qí", e:"to ride"},
+  {n:13, w:"遠", z:"ㄩㄢˇ", p:"yuǎn", e:"far, distant"}
+];
+var HANZI = [
+  {c:"怎", z:"ㄗㄣˇ", p:"zěn", s:9, r:"心"},
+  {c:"想", z:"ㄒㄧㄤˇ", p:"xiǎng", s:13, r:"心"},
+  {c:"開", z:"ㄎㄞ", p:"kāi", s:12, r:"門"},
+  {c:"走", z:"ㄗㄡˇ", p:"zǒu", s:7, r:"走"},
+  {c:"路", z:"ㄌㄨˋ", p:"lù", s:13, r:"足"},
+  {c:"坐", z:"ㄗㄨㄛˋ", p:"zuò", s:7, r:"土"}
+];
+var READ = [
+  {c:"平", z:"ㄆㄧㄥˊ", p:"píng"}, {c:"行", z:"ㄒㄧㄥˊ", p:"xíng"}, {c:"學", z:"ㄒㄩㄝˊ", p:"xué", sc:"学"},
+  {c:"校", z:"ㄒㄧㄠˋ", p:"xiào"}, {c:"坐", z:"ㄗㄨㄛˋ", p:"zuò"}, {c:"車", z:"ㄔㄜ", p:"chē", sc:"车"},
+  {c:"遠", z:"ㄩㄢˇ", p:"yuǎn", sc:"远"}, {c:"送", z:"ㄙㄨㄥˋ", p:"sòng"}, {c:"近", z:"ㄐㄧㄣˋ", p:"jìn"},
+  {c:"騎", z:"ㄑㄧˊ", p:"qí", sc:"骑"}, {c:"自", z:"ㄗˋ", p:"zì"}
+];
+var CHARS = (function(){ var m={}, out=[]; HANZI.concat(READ).forEach(function(h){ if(!m[h.c]){ m[h.c]=1; out.push(h); } }); return out; })();
+var CZ = {}; CHARS.forEach(function(h){ CZ[h.c]=h.z; });
+var WZ = {}; WORDS.forEach(function(o){ WZ[o.w]=o.z; });
+
+/* 交通方式與任務卡（句子都來自課文與句型） */
+var MODES = {
+  bus:  {label:"坐校車",   key:"校車",   speed:5.0, far:true},
+  car:  {label:"開車",     key:"開車",   speed:5.6, far:true},
+  bike: {label:"騎自行車", key:"自行車", speed:4.4, far:false},
+  walk: {label:"走路",     key:"走路",   speed:3.6, far:false}
+};
+var MODE_ORDER = ["bus","car","bike","walk"];
+var TASKS = {
+  bus: [
+    {lines:["心美：東明，你平常怎麼去學校？","東明：我坐校車。"], q:"東明平常怎麼去學校？", recap:"東明坐校車去學校。"},
+    {lines:["我今天想坐校車。"], q:"「我」今天想怎麼去學校？", recap:"我今天坐校車去學校。"}
+  ],
+  car: [
+    {lines:["心美：我家很遠，媽媽開車送我去。"], q:"心美怎麼去學校？", recap:"媽媽開車送心美去學校。"},
+    {lines:["文文：我們怎麼去學校？","爸爸：我們開車去。"], q:"文文和爸爸怎麼去學校？", recap:"爸爸開車送文文去學校。"}
+  ],
+  bike: [
+    {lines:["大文：我家很近，我走路去，","可是我想騎自行車去。"], q:"大文「想」怎麼去學校？", recap:"大文騎自行車去學校。"},
+    {lines:["心美：你怎麼去？","東明：我騎自行車去。"], q:"東明怎麼去？", recap:"東明騎自行車去學校。"}
+  ],
+  walk: [
+    {lines:["大文：我家很近，我走路去。"], q:"大文家很近，他怎麼去學校？", recap:"大文走路去學校。"},
+    {lines:["我家很近，今天我想走路去學校。"], q:"「我」今天想怎麼去學校？", recap:"我今天走路去學校。"}
+  ]
+};
+
+/* ============================================================
+   二、題庫（詞彙／漢字／句型）
+   ============================================================ */
+function wordOpt(w){ return {t:w, z:WZ[w] || (w.length===1 ? CZ[w] : "")}; }
+function charOpt(c){ return {t:c, z:CZ[c] || ""}; }
+function others(pool, ans, n){ return shuffle(pool.filter(function(x){ return x!==ans; })).slice(0,n); }
+var WLIST = WORDS.map(function(o){ return o.w; });
+var CLIST = CHARS.map(function(h){ return h.c; });
+
+function buildBags(){
+  var V = [];
+  WORDS.forEach(function(o){
+    V.push(function(){ return {cat:"詞", prompt:"哪一個詞的意思是<br><b>「"+esc(o.e)+"」</b>？",
+      opts:shuffle([o.w].concat(others(WLIST,o.w,3))).map(wordOpt), ans:o.w, tag:o.e+" → "+o.w}; });
+    V.push(function(){ return {cat:"詞", noHint:true, prompt:"<span class='zy'>"+esc(o.z)+"</span><br><small>"+esc(o.p)+"</small><br>是哪一個詞？",
+      opts:shuffle([o.w].concat(others(WLIST,o.w,3))).map(wordOpt), ans:o.w, tag:o.z+" → "+o.w}; });
+  });
+  /* 每題的錯誤選項都逐一挑過，放進句子裡一定不通，避免「開車／坐車」這類兩個都對的情形 */
+  [["＿＿自行車","騎",["開","走","近"]],["＿＿校車","坐",["騎","走","近"]],["爸爸＿＿車送我去學校","開",["走","近","遠"]],
+   ["＿＿路去學校","走",["坐","騎","送"]],["媽媽開車＿＿我去","送",["騎","走","坐"]]].forEach(function(x){
+    V.push(function(){ return {cat:"詞", prompt:"哪一個字放進去最好？<br><span class='big'>"+x[0]+"</span>",
+      opts:shuffle([x[1]].concat(x[2])).map(charOpt), ans:x[1], tag:x[0].replace("＿＿",x[1])}; });
+  });
+
+  var C = [];
+  CHARS.forEach(function(h){
+    C.push(function(){ return {cat:"字", noHint:true, prompt:"哪一個字念<br><span class='zy'>"+esc(h.z)+"</span>　<small>"+esc(h.p)+"</small>？",
+      opts:shuffle([h.c].concat(others(CLIST,h.c,3))).map(charOpt), ans:h.c, tag:h.z+" → "+h.c}; });
+  });
+  HANZI.forEach(function(h){
+    C.push(function(){ return {cat:"字", noHint:true, prompt:"哪一個字是「"+h.r+"」部，<br>一共 "+h.s+" 畫？",
+      opts:shuffle([h.c].concat(others(HANZI.map(function(x){return x.c;}),h.c,3))).map(charOpt), ans:h.c, tag:h.r+"部 "+h.s+"畫 → "+h.c}; });
+  });
+  [["自＿行車","自＿車","行",["想","近","走"]],["學＿","學＿","校",["送","騎","平"]],["＿常","＿常","平",["坐","遠","想"]],
+   ["＿路","＿路","走",["送","遠","想"]],["走＿","走＿","路",["坐","近","怎"]],["＿麼","＿麼","怎",["想","送","騎"]],
+   ["＿行車","＿行車","自",["想","坐","近"]],["開＿","開＿","車",["近","想","平"]]].forEach(function(x){
+    C.push(function(){ return {cat:"字", prompt:"缺了哪一個字？<br><span class='big'>"+x[1]+"</span>",
+      opts:shuffle([x[2]].concat(x[3])).map(charOpt), ans:x[2], tag:x[1].replace("＿",x[2])}; });
+  });
+
+  var S = [];
+  [["你平常＿＿去學校？","怎麼",["近","遠","送"]],
+   ["我＿＿騎自行車去學校。","想",["送","遠","開"]],
+   ["我家很遠，媽媽開車＿＿我去。","送",["騎","坐","近"]],
+   ["我家很近，我＿＿去。","走路",["校車","學校","平常"]],
+   ["我坐＿＿去學校。","校車",["走路","學校","平常"]],
+   ["我家很＿＿，我走路去。","近",["騎","想","送"]],
+   ["我今天想＿＿校車。","坐",["騎","走","近"]],
+   ["他們＿＿自行車去學校。","騎",["開","走","近"]],
+   ["你＿＿常做什麼運動？","平",["想","近","怎"]]].forEach(function(x){
+    S.push(function(){ return {cat:"句", prompt:"選出正確的詞，完成句子：<br><span class='big' style='font-size:1.7rem'>"+x[0]+"</span>",
+      opts:shuffle([x[1]].concat(x[2])).map(wordOpt), ans:x[1], tag:x[0].replace("＿＿",x[1])}; });
+  });
+  [[["我","平常","坐","校車","去","學校"],["我平常坐校車去學校","平常我坐校車去學校"],"。"],
+   [["我","想","騎","自行車","去","學校"],["我想騎自行車去學校"],"。"],
+   [["媽媽","開車","送","我","去","學校"],["媽媽開車送我去學校"],"。"],
+   [["你","平常","怎麼","去","學校"],["你平常怎麼去學校","平常你怎麼去學校"],"？"],
+   [["我們","開車","去","學校"],["我們開車去學校"],"。"]].forEach(function(x){
+    S.push(function(){ return {cat:"句", order:true, prompt:"把詞語排成正確的句子：", tokens:shuffle(x[0].slice()), accept:x[1], end:x[2],
+      ans:x[1][0]+x[2], tag:x[1][0]+x[2]}; });
+  });
+  [["心美：你平常怎麼去學校？","我平常坐校車去學校。",["我平常校車坐去學校。","我坐平常去學校校車。","平常我學校坐去校車。"]],
+   ["心美：大文，你怎麼去？","我騎自行車去。",["我自行車騎去。","騎我自行車去。","我去騎自行車騎。"]],
+   ["文文：我們怎麼去學校？","我們開車去。",["我們車開去。","開車我們去們。","我們去開車去。"]],
+   ["東明：你家很近嗎？","我家很近，我走路去。",["我家很近，我路走去。","我很近家，我走路去。","很近我家，走我路去。"]],
+   ["老師：你想怎麼去學校？","我想騎自行車去學校。",["我騎想自行車去學校。","我想自行車騎去學校。","想我騎去自行車學校。"]]].forEach(function(x){
+    S.push(function(){ return {cat:"句", long:true, prompt:x[0]+"<br><small>哪一句回答是對的？</small>",
+      opts:shuffle([x[1]].concat(x[2])).map(function(s){return {t:s};}), ans:x[1], tag:x[0]+" → "+x[1]}; });
+  });
+  return {"詞":shuffle(V), "字":shuffle(C), "句":shuffle(S)};
+}
+
+/* ============================================================
+   三、地圖與移動
+   ============================================================ */
+var cv = $("cv"), ctx = cv.getContext("2d");
+var T=36, CW=600, CH=640, VW=456, VH=640, PX=456;
+var SC = (window.devicePixelRatio||1) >= 1.5 ? 1.5 : 1;
+cv.width = CW*SC; cv.height = CH*SC;
+var DX=[0,1,0,-1], DY=[-1,0,1,0];
+var W=17, H=21, grid, rocks=[], flags=[], traffic=[], player=null, START, SCHOOL, mapCv=null, SP=null;
+var CATCOL = {"詞":"#f08a24","字":"#16958a","句":"#7b55c7"};
+
+function idx(x,y){ return y*W+x; }
+function isRoad(x,y){ return x>=0&&y>=0&&x<W&&y<H&&grid[idx(x,y)]===1; }
+function rockAt(x,y){ return rocks.some(function(r){ return r.x===x&&r.y===y; }); }
+function pass(x,y){ return isRoad(x,y) && !rockAt(x,y); }
+function cx(t){ return t*T+T/2; }
+function connected(){
+  var total=0; for(var i=0;i<grid.length;i++) total+=grid[i]; total-=rocks.length;
+  var seen=new Uint8Array(W*H), q=[[START.x,START.y]], n=1; seen[idx(START.x,START.y)]=1;
+  while(q.length){ var c=q.pop();
+    for(var d=0;d<4;d++){ var nx=c[0]+DX[d], ny=c[1]+DY[d];
+      if(pass(nx,ny)&&!seen[idx(nx,ny)]){ seen[idx(nx,ny)]=1; n++; q.push([nx,ny]); } } }
+  return n===total;
+}
+function genMap(far){
+  W=17; H=far?33:21;
+  grid=new Uint8Array(W*H); rocks=[];
+  for(var y=0;y<H;y++) for(var x=0;x<W;x++) grid[idx(x,y)] = (x%4===0||y%4===0) ? 1 : 0;
+  START={x:pick([0,4,8,12]), y:H-5};
+  SCHOOL={x:pick([0,4,8,12]), y:4};
+  if(SCHOOL.x===START.x) SCHOOL.x=(START.x+8)%16;
+  var segs=[];
+  for(y=0;y<H;y+=4) for(x=0;x<W-1;x+=4) segs.push([[x+1,y],[x+2,y],[x+3,y]]);
+  for(x=0;x<W;x+=4) for(y=0;y<H-1;y+=4) segs.push([[x,y+1],[x,y+2],[x,y+3]]);
+  shuffle(segs); var closed=0, target=segs.length*.25, open=[];
+  segs.forEach(function(s){
+    if(closed<target){ s.forEach(function(p){ grid[idx(p[0],p[1])]=0; });
+      if(connected()){ closed++; return; } s.forEach(function(p){ grid[idx(p[0],p[1])]=1; }); }
+    open.push(s);
+  });
+  var nr = far?3:2;
+  shuffle(open).forEach(function(s){
+    if(rocks.length>=nr) return; var p=s[1];
+    if(Math.abs(p[0]-START.x)+Math.abs(p[1]-START.y)<6 || Math.abs(p[0]-SCHOOL.x)+Math.abs(p[1]-SCHOOL.y)<4) return;
+    rocks.push({x:p[0],y:p[1]}); if(!connected()) rocks.pop();
+  });
+  flags=[]; var cands=[];
+  for(y=0;y<H;y++) for(x=0;x<W;x++){
+    if(!pass(x,y)) continue;
+    if(Math.abs(x-START.x)+Math.abs(y-START.y)<5 || Math.abs(x-SCHOOL.x)+Math.abs(y-SCHOOL.y)<3) continue;
+    cands.push({x:x,y:y});
+  }
+  var cats=shuffle(["詞","字","句"]);
+  shuffle(cands).forEach(function(c){
+    if(flags.length>=3) return;
+    if(flags.every(function(f){ return Math.abs(f.x-c.x)+Math.abs(f.y-c.y)>=6; }))
+      flags.push({x:c.x, y:c.y, cat:cats[flags.length], got:false});
+  });
+}
+function mkCar(tx,ty,dir){ return {x:cx(tx),y:cx(ty),gx:tx,gy:ty,dir:dir,stun:0,cd:0,go:false}; }
+function placeCars(far){
+  player = mkCar(START.x, START.y, 0);
+  traffic=[]; var spots=[];
+  for(var y=0;y<H;y+=4) for(var x=0;x<W;x+=4)
+    if(Math.abs(x-START.x)+Math.abs(y-START.y)>=8 && !(x===SCHOOL.x&&y===SCHOOL.y)) spots.push([x,y]);
+  shuffle(spots).slice(0, far?3:2).forEach(function(s,i){
+    var c=mkCar(s[0],s[1],Math.floor(Math.random()*4)); c.col=i%3; traffic.push(c);
+  });
+}
+function stepCar(e,dist,decide){
+  var g=0;
+  while(dist>1e-6 && g++<12){
+    var tx=cx(e.gx), ty=cx(e.gy), d=Math.abs(tx-e.x)+Math.abs(ty-e.y);
+    if(d>dist){ e.x+=Math.sign(tx-e.x)*Math.min(dist,Math.abs(tx-e.x)); e.y+=Math.sign(ty-e.y)*Math.min(dist,Math.abs(ty-e.y)); return; }
+    e.x=tx; e.y=ty; dist-=d; decide(e);
+    var nx=e.gx+DX[e.dir], ny=e.gy+DY[e.dir];
+    if(pass(nx,ny)){ e.gx=nx; e.gy=ny; } else return;
+  }
+}
+
+/* ---------- 城市背景（每段預先畫好） ---------- */
+function shade(hex,a){ var n=parseInt(hex.slice(1),16), r=n>>16, g=n>>8&255, b=n&255;
+  function f(v){ return Math.max(0,Math.min(255,Math.round(v+a))); }
+  return "#"+((1<<24)|(f(r)<<16)|(f(g)<<8)|f(b)).toString(16).slice(1); }
+function rrp(g,x,y,w,h,r){ g.beginPath(); if(g.roundRect) g.roundRect(x,y,w,h,r); else g.rect(x,y,w,h); }
+function tree(g,x,y,r){
+  g.fillStyle="rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(x+r*.35,y+r*.4,r,r*.85,0,0,7); g.fill();
+  var gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r);
+  var hue=pick([["#a6dc72","#2e6b2c"],["#8fd16a","#245e2a"],["#b8d96a","#3d6b24"]]);
+  gr.addColorStop(0,hue[0]); gr.addColorStop(1,hue[1]); g.fillStyle=gr;
+  g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+}
+function grass(g,x,y,w,h){
+  g.fillStyle="#62a34f"; g.fillRect(x,y,w,h);
+  for(var k=0;k<w*h/60;k++){ g.fillStyle=Math.random()<.5?"rgba(255,255,200,.06)":"rgba(0,40,0,.07)"; g.fillRect(x+Math.random()*w,y+Math.random()*h,2,2); }
+}
+function sign(g,x,y,txt,bg){
+  g.font="bold 15px "+getComputedStyle(document.body).fontFamily; var w=g.measureText(txt).width+16;
+  g.fillStyle="rgba(0,0,0,.25)"; rrp(g,x-w/2+2,y-11+2,w,22,6); g.fill();
+  g.fillStyle=bg; rrp(g,x-w/2,y-11,w,22,6); g.fill();
+  g.fillStyle="#fff"; g.textAlign="center"; g.textBaseline="middle"; g.fillText(txt,x,y+1);
+}
+function house(g,lx,ly){
+  var x=lx+24, y=ly+30, w=60, h=48;
+  g.fillStyle="rgba(0,0,0,.28)"; g.fillRect(x+6,y+6,w,h);
+  g.fillStyle="#f1e3c8"; g.fillRect(x,y+h-12,w,12);
+  g.fillStyle="#7a4a2a"; g.fillRect(x+w/2-5,y+h-11,10,11);
+  var r1=g.createLinearGradient(0,y,0,y+(h-12)/2); r1.addColorStop(0,"#f07a5a"); r1.addColorStop(1,"#c9472f");
+  g.fillStyle=r1; g.fillRect(x,y,w,(h-12)/2);
+  var r2=g.createLinearGradient(0,y+(h-12)/2,0,y+h-12); r2.addColorStop(0,"#a8371f"); r2.addColorStop(1,"#c9472f");
+  g.fillStyle=r2; g.fillRect(x,y+(h-12)/2,w,(h-12)/2);
+  g.strokeStyle="#7d2512"; g.lineWidth=1.5; g.beginPath(); g.moveTo(x,y+(h-12)/2); g.lineTo(x+w,y+(h-12)/2); g.stroke();
+  g.fillStyle="#8d8d8d"; g.fillRect(x+w-16,y+4,8,8);
+  g.fillStyle="#d8c9a3"; g.fillRect(x+w/2-4,y+h,8,ly+108-(y+h));
+  sign(g,lx+54,ly+16,"家","#d9453b");
+}
+function school(g,lx,ly){
+  var x=lx+10, y=ly+28, w=88, h=56;
+  g.fillStyle="#c0d6a8"; g.fillRect(lx+6,ly+6,96,96);
+  g.fillStyle="rgba(0,0,0,.28)"; g.fillRect(x+7,y+6,w,h);
+  g.fillStyle="#c9a77a"; g.fillRect(x,y+h-14,w,14);
+  g.fillStyle="rgba(170,215,255,.9)"; for(var wx=x+4; wx<x+w-6; wx+=9) g.fillRect(wx,y+h-11,5,6);
+  var rg=g.createLinearGradient(x,y,x+w,y+h); rg.addColorStop(0,"#f5ead8"); rg.addColorStop(1,"#d9c6a6");
+  g.fillStyle=rg; g.fillRect(x,y,w,h-14);
+  g.strokeStyle="#b79a6f"; g.lineWidth=1.5; g.strokeRect(x+.75,y+.75,w-1.5,h-15.5);
+  g.fillStyle="#b23a2a"; g.fillRect(x+w/2-12,y-8,24,22);
+  g.fillStyle="#fff"; g.beginPath(); g.arc(x+w/2,y+3,7,0,7); g.fill();
+  g.strokeStyle="#333"; g.lineWidth=1.3; g.beginPath(); g.moveTo(x+w/2,y+3); g.lineTo(x+w/2,y-2); g.moveTo(x+w/2,y+3); g.lineTo(x+w/2+4,y+3); g.stroke();
+  g.strokeStyle="#eee"; g.lineWidth=2; g.beginPath(); g.moveTo(lx+12,ly+100); g.lineTo(lx+12,ly+60); g.stroke();
+  g.fillStyle="#2b7fc1"; g.fillRect(lx+13,ly+60,14,9); g.fillStyle="#ffb400"; g.fillRect(lx+13,ly+64,14,2);
+  sign(g,lx+64,ly+14,"學校","#2f9e5b");
+}
+function barrier(g,tx,ty){
+  var x=cx(tx), y=cx(ty), vert=ty%4===0;
+  g.save(); g.translate(x,y); if(!vert) g.rotate(Math.PI/2);
+  g.fillStyle="rgba(0,0,0,.35)"; g.fillRect(-3,-T/2+7,10,T-10);
+  g.save(); rrp(g,-5,-T/2+4,10,T-8,2); g.clip(); g.fillStyle="#fafafa"; g.fillRect(-6,-T/2,12,T);
+  g.fillStyle="#ff7a1a"; for(var k=-T;k<T;k+=8){ g.beginPath(); g.moveTo(-6,k); g.lineTo(6,k-6); g.lineTo(6,k-2); g.lineTo(-6,k+4); g.fill(); }
+  g.restore(); g.strokeStyle="#3a2a1a"; g.lineWidth=1; rrp(g,-5,-T/2+4,10,T-8,2); g.stroke();
+  g.restore();
+}
+function buildCity(){
+  mapCv=document.createElement("canvas"); mapCv.width=W*T*SC; mapCv.height=H*T*SC;
+  var g=mapCv.getContext("2d"); g.scale(SC,SC);
+  g.fillStyle="#3b3e46"; g.fillRect(0,0,W*T,H*T);
+  for(var k=0;k<W*H*6;k++){ g.fillStyle=Math.random()<.5?"rgba(255,255,255,.05)":"rgba(0,0,0,.12)"; g.fillRect(Math.random()*W*T,Math.random()*H*T,1.5,1.5); }
+  var x,y,i,j;
+  for(y=0;y<H;y++) for(x=0;x<W;x++){
+    if(!isRoad(x,y) || (x%4===0&&y%4===0)) continue;
+    g.fillStyle="rgba(255,214,90,.75)";
+    if(y%4===0) g.fillRect(x*T+8,y*T+T/2-1,T-16,2); else g.fillRect(x*T+T/2-1,y*T+8,2,T-16);
+  }
+  for(y=0;y<H;y++) for(x=0;x<W;x++) if(!isRoad(x,y)) grass(g,x*T,y*T,T,T);
+  for(y=0;y<H;y++) for(x=0;x<W;x++){
+    if(isRoad(x,y)) continue; var px=x*T, py=y*T; g.fillStyle="#ece7dc";
+    if(isRoad(x,y-1)) g.fillRect(px,py,T,3); if(isRoad(x,y+1)) g.fillRect(px,py+T-3,T,3);
+    if(isRoad(x-1,y)) g.fillRect(px,py,3,T); if(isRoad(x+1,y)) g.fillRect(px+T-3,py,3,T);
+  }
+  var hl={i:START.x/4, j:START.y/4}, sl={i:SCHOOL.x/4, j:SCHOOL.y/4-1};
+  for(j=0;j*4+3<H;j++) for(i=0;i*4+3<W;i++){
+    if((i===hl.i&&j===hl.j)||(i===sl.i&&j===sl.j)) continue;
+    for(k=1;k<=3;k++){
+      var tx=4*i+k, ty=4*j+k;
+      if(isRoad(tx,4*j)) tree(g,cx(tx),(4*j+1)*T+8,6.5);
+      if(isRoad(tx,4*j+4)) tree(g,cx(tx),(4*j+4)*T-8,6.5);
+      if(isRoad(4*i,ty)) tree(g,(4*i+1)*T+8,cx(ty),6.5);
+      if(isRoad(4*i+4,ty)) tree(g,(4*i+4)*T-8,cx(ty),6.5);
+    }
+  }
+  house(g,(START.x+1)*T,(START.y+1)*T);
+  school(g,(SCHOOL.x+1)*T,(SCHOOL.y-3)*T);
+  rocks.forEach(function(r){ barrier(g,r.x,r.y); });
+}
+
+/* ---------- 交通工具（俯視） ---------- */
+function spriteCanvas(draw){ var c=document.createElement("canvas"); c.width=48*SC; c.height=64*SC;
+  var g=c.getContext("2d"); g.scale(SC,SC); g.translate(24,32); draw(g); return c; }
+function glossBody(g,x,y,w,h,r,base,light,dark){
+  rrp(g,x,y,w,h,r);
+  var bg=g.createLinearGradient(x,0,x+w,0);
+  bg.addColorStop(0,dark); bg.addColorStop(.2,light); bg.addColorStop(.42,base); bg.addColorStop(.82,base); bg.addColorStop(1,dark);
+  g.fillStyle=bg; g.fill();
+  var vg=g.createLinearGradient(0,y,0,y+h); vg.addColorStop(0,"rgba(255,255,255,.22)"); vg.addColorStop(.45,"rgba(255,255,255,0)"); vg.addColorStop(1,"rgba(0,0,0,.25)");
+  g.fillStyle=vg; g.fill(); g.strokeStyle="rgba(0,0,0,.6)"; g.lineWidth=1; g.stroke();
+}
+function glass(g,pts,top,bot){ g.beginPath(); g.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]); g.closePath();
+  var gg=g.createLinearGradient(0,pts[0][1],0,pts[2][1]); gg.addColorStop(0,top); gg.addColorStop(1,bot); g.fillStyle=gg; g.fill(); }
+function carSprite(base,light,dark,stripes){ return spriteCanvas(function(g){
+  g.fillStyle="#121316"; [[-13,-14],[9,-14],[-13,6],[9,6]].forEach(function(p){ rrp(g,p[0],p[1],4,9,1.5); g.fill(); });
+  glossBody(g,-11,-18,22,36,8,base,light,dark);
+  if(stripes){ g.fillStyle="rgba(255,255,255,.95)"; g.fillRect(-3.5,-17,2.2,11); g.fillRect(1.3,-17,2.2,11); g.fillRect(-3.5,10,2.2,7); g.fillRect(1.3,10,2.2,7); }
+  glass(g,[[-8.5,-6],[8.5,-6],[7,0],[-7,0]],"#c9ecff","#1a2a44");
+  glass(g,[[-7,8],[7,8],[8,11],[-8,11]],"#24344f","#7fa9d1");
+  rrp(g,-7,0,14,8,2); var rg=g.createLinearGradient(-7,0,7,0); rg.addColorStop(0,light); rg.addColorStop(.5,base); rg.addColorStop(1,dark); g.fillStyle=rg; g.fill();
+  if(stripes){ g.fillStyle="rgba(255,255,255,.95)"; g.fillRect(-3.5,0,2.2,8); g.fillRect(1.3,0,2.2,8); }
+  g.fillStyle="#fff8c8"; rrp(g,-9,-18,5,2.6,1); g.fill(); rrp(g,4,-18,5,2.6,1); g.fill();
+  g.fillStyle="#ff2a2a"; rrp(g,-9,15.6,5,2.4,1); g.fill(); rrp(g,4,15.6,5,2.4,1); g.fill();
+  g.fillStyle="rgba(255,255,255,.6)"; g.beginPath(); g.ellipse(-6,-11,1.6,4.5,0,0,7); g.fill();
+}); }
+function busSprite(){ return spriteCanvas(function(g){
+  g.fillStyle="#121316"; [[-14,-20],[10,-20],[-14,12],[10,12]].forEach(function(p){ rrp(g,p[0],p[1],4,10,1.5); g.fill(); });
+  glossBody(g,-12,-28,24,56,5,"#ffb400","#ffe08a","#a86b00");
+  glass(g,[[-10,-27],[10,-27],[10,-21],[-10,-21]],"#c9ecff","#1a2a44");
+  g.fillStyle="#2a3550"; for(var y=-16;y<22;y+=7){ g.fillRect(-12,y,2.4,5); g.fillRect(9.6,y,2.4,5); }
+  g.fillStyle="rgba(255,255,255,.85)"; g.fillRect(-6,-12,12,7); g.fillRect(-6,6,12,7);
+  g.fillStyle="#222"; g.fillRect(-10,-2,20,3);
+  g.fillStyle="#fff8c8"; g.fillRect(-10,-28,4,2); g.fillRect(6,-28,4,2);
+  g.fillStyle="#ff2a2a"; g.fillRect(-10,26,4,2); g.fillRect(6,26,4,2);
+  g.fillStyle="rgba(255,255,255,.55)"; g.beginPath(); g.ellipse(-7,-15,1.6,6,0,0,7); g.fill();
+}); }
+function bikeSprite(){ return spriteCanvas(function(g){
+  g.fillStyle="rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(3,4,9,16,0,0,7); g.fill();
+  g.fillStyle="#1a1a1a"; rrp(g,-2,-25,4,13,2); g.fill(); rrp(g,-2,11,4,13,2); g.fill();
+  g.strokeStyle="#2b7fc1"; g.lineWidth=3; g.beginPath(); g.moveTo(0,-14); g.lineTo(0,12); g.stroke();
+  g.strokeStyle="#333"; g.lineWidth=2.5; g.beginPath(); g.moveTo(-9,-14); g.lineTo(9,-14); g.stroke();
+  g.strokeStyle="#f2c7a0"; g.lineWidth=3.2; g.lineCap="round"; g.beginPath(); g.moveTo(-7,-2); g.lineTo(-8,-13); g.moveTo(7,-2); g.lineTo(8,-13); g.stroke();
+  var sg=g.createLinearGradient(-9,0,9,0); sg.addColorStop(0,"#1f8a4c"); sg.addColorStop(.35,"#6fd59a"); sg.addColorStop(1,"#15663a");
+  g.fillStyle=sg; g.beginPath(); g.ellipse(0,1,9,6,0,0,7); g.fill();
+  var hg=g.createRadialGradient(-2,-3,1,0,0,6.5); hg.addColorStop(0,"#ffd34d"); hg.addColorStop(1,"#d68f00");
+  g.fillStyle=hg; g.beginPath(); g.arc(0,0,6,0,7); g.fill();
+  g.fillStyle="rgba(255,255,255,.7)"; g.beginPath(); g.ellipse(-2,-2.5,1.5,2.4,0,0,7); g.fill();
+}); }
+function walkSprite(){ return spriteCanvas(function(g){
+  g.fillStyle="rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(3,4,11,9,0,0,7); g.fill();
+  g.fillStyle="#2c3e66"; g.beginPath(); g.ellipse(-4,-9,3,4,0,0,7); g.ellipse(4,-6,3,4,0,0,7); g.fill();
+  g.fillStyle="#d9453b"; rrp(g,-7,3,14,9,3); g.fill(); g.strokeStyle="#8f241c"; g.lineWidth=1; g.stroke();
+  var sg=g.createLinearGradient(-10,0,10,0); sg.addColorStop(0,"#d97a00"); sg.addColorStop(.35,"#ffc35a"); sg.addColorStop(1,"#b86400");
+  g.fillStyle=sg; g.beginPath(); g.ellipse(0,0,10,6,0,0,7); g.fill();
+  g.fillStyle="#f2c7a0"; g.beginPath(); g.arc(-11,-1,2.6,0,7); g.arc(11,1,2.6,0,7); g.fill();
+  var hg=g.createRadialGradient(-2,-3,1,0,-1,6.5); hg.addColorStop(0,"#7a5236"); hg.addColorStop(1,"#3a2414");
+  g.fillStyle=hg; g.beginPath(); g.arc(0,-1,6.3,0,7); g.fill();
+  g.fillStyle="rgba(255,255,255,.4)"; g.beginPath(); g.ellipse(-2,-3.5,1.5,2.2,0,0,7); g.fill();
+}); }
+function makeSprites(){ return {
+  car:carSprite("#e3242b","#ff9a9a","#650a0f",true), bus:busSprite(), bike:bikeSprite(), walk:walkSprite(),
+  traffic:[carSprite("#e8ecf1","#ffffff","#8a96a3",false), carSprite("#7f8c99","#c3ccd6","#3e4852",false), carSprite("#3c9a9a","#9fdcdc","#1b4f4f",false)]
+}; }
+
+/* ============================================================
+   四、遊戲狀態
+   ============================================================ */
+var G = null;          // 一局的資料
+var state = "title";   // title / choose / drive / question / arrive / result
+var cur = null;        // 目前這一段
+var lastTime = performance.now(), clock = 0;
+
+function newGame(){
+  G = {stages:shuffle(MODE_ORDER.slice()), i:0, bags:buildBags(), score:0, right:0, total:0, wrong:[],
+       transportOK:0, bumps:0, seconds:0, stageTimes:[], id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),
+       school:$("f-school").value.trim(), cls:$("f-class").value.trim(), name:$("f-name").value.trim(), sent:false};
+  $("btn-quit").hidden=false; setSync("");
+  beginStage();
+}
+function beginStage(){
+  var mode = G.stages[G.i];
+  cur = {mode:mode, task:pick(TASKS[mode]), t:0, done:0, firstTry:true, bonus:0, qscore:0};
+  genMap(MODES[mode].far); buildCity(); placeCars(MODES[mode].far);
+  state = "choose"; showChoose();
+}
+function finishStage(){
+  var par = MODES[cur.mode].far ? 75 : 55;
+  cur.bonus = 100 + Math.max(0, Math.round((par - cur.t)*3));
+  G.score += cur.bonus;
+  G.stageTimes.push(MODES[cur.mode].label+" "+Math.round(cur.t)+"秒");
+  state = "arrive"; sClear(); showArrive();
+}
+
+/* ---------- 輸入 ---------- */
+var held=[], buf=null, bufT=0;
+var KEYS={ArrowUp:0,KeyW:0,ArrowRight:1,KeyD:1,ArrowDown:2,KeyS:2,ArrowLeft:3,KeyA:3};
+function press(d){ if(held.indexOf(d)<0) held.push(d); buf=d; bufT=.5; if(player) player.go=true; }
+function release(d){ var i=held.indexOf(d); if(i>=0) held.splice(i,1); }
+function want(){ return held.length ? held[held.length-1] : (bufT>0 ? buf : null); }
+document.addEventListener("keydown", function(e){
+  var tag=(e.target&&e.target.tagName)||"";
+  if(tag==="INPUT") return;
+  if(e.code in KEYS && state==="drive"){ e.preventDefault(); if(!e.repeat) press(KEYS[e.code]); return; }
+  if(/^Digit[1-4]$|^Numpad[1-4]$/.test(e.code)){
+    var n=+e.code.slice(-1)-1, bs=$("ov").querySelectorAll(".choice:not(:disabled), .mode");
+    if(bs[n]){ e.preventDefault(); bs[n].click(); }
+  }
+});
+document.addEventListener("keyup", function(e){ if(e.code in KEYS) release(KEYS[e.code]); });
+window.addEventListener("blur", function(){ held.length=0; });
+Array.prototype.forEach.call(document.querySelectorAll(".dpad button"), function(b){
+  var d=+b.dataset.d;
+  b.addEventListener("pointerdown", function(e){ e.preventDefault(); if(b.setPointerCapture) b.setPointerCapture(e.pointerId); if(state==="drive") press(d); });
+  ["pointerup","pointercancel","pointerleave"].forEach(function(t){ b.addEventListener(t, function(){ release(d); }); });
+});
+
+/* ---------- 音效與語音 ---------- */
+var AC=null;
+function audio(){ if(!$("o-sfx").checked) return null;
+  try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); return AC; }catch(e){ return null; } }
+function beep(f1,f2,dur,type,vol){ var ac=audio(); if(!ac) return;
+  var o=ac.createOscillator(), g=ac.createGain(); o.type=type||"square";
+  o.frequency.setValueAtTime(f1,ac.currentTime); if(f2) o.frequency.linearRampToValueAtTime(f2,ac.currentTime+dur);
+  g.gain.setValueAtTime(vol||.05,ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+dur);
+  o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+dur+.02); }
+function sRight(){ beep(660,1320,.22,"triangle",.07); }
+function sWrong(){ beep(300,110,.3,"sawtooth",.06); }
+function sBump(){ beep(220,90,.25,"square",.06); }
+function sFlag(){ beep(880,1100,.12,"square",.04); }
+function sClear(){ [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){ beep(f,0,.16,"triangle",.07); }, i*120); }); }
+var VOICE=null;
+function pickVoice(){ try{ var vs=speechSynthesis.getVoices();
+  VOICE = vs.filter(function(v){ return /zh[-_]TW/i.test(v.lang); })[0] || vs.filter(function(v){ return /^zh/i.test(v.lang); })[0] || null; }catch(e){} }
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text.replace(/＿+/g,"什麼"));
+    u.lang="zh-TW"; if(VOICE) u.voice=VOICE; u.rate=.85; speechSynthesis.speak(u); }catch(e){}
+}
+
+/* ============================================================
+   五、畫面上的卡片
+   ============================================================ */
+var ov=$("ov");
+function showOv(html){ ov.innerHTML='<div class="card">'+html+'</div>'; ov.hidden=false; }
+function hideOv(){ ov.hidden=true; ov.innerHTML=""; }
+var toastTimer=0;
+function toast(msg){ var t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.hidden=true; },1600); }
+
+var ICON = {
+  bus:'<svg viewBox="0 0 84 46" aria-hidden="true"><rect x="4" y="6" width="74" height="28" rx="5" fill="#ffb400" stroke="#8a5a00" stroke-width="2"/><rect x="10" y="11" width="12" height="9" fill="#9fd3f5"/><rect x="26" y="11" width="12" height="9" fill="#9fd3f5"/><rect x="42" y="11" width="12" height="9" fill="#9fd3f5"/><rect x="58" y="11" width="14" height="13" fill="#9fd3f5"/><rect x="4" y="24" width="74" height="3" fill="#333"/><circle cx="20" cy="36" r="6" fill="#222"/><circle cx="62" cy="36" r="6" fill="#222"/></svg>',
+  car:'<svg viewBox="0 0 84 46" aria-hidden="true"><path d="M8 32 L10 20 Q12 16 18 16 L28 8 L56 8 L66 16 Q76 17 77 24 L78 32 Z" fill="#e3242b" stroke="#7a0f12" stroke-width="2"/><path d="M31 11 L41 11 L41 17 L24 17 Z M45 11 L55 11 L62 17 L45 17 Z" fill="#9fd3f5"/><circle cx="24" cy="34" r="7" fill="#222"/><circle cx="64" cy="34" r="7" fill="#222"/></svg>',
+  bike:'<svg viewBox="0 0 84 46" aria-hidden="true"><g fill="none" stroke="#222" stroke-width="3"><circle cx="20" cy="30" r="11"/><circle cx="64" cy="30" r="11"/></g><path d="M20 30 L34 14 L56 14 L64 30 M34 14 L42 30 L56 14 M42 30 L20 30" fill="none" stroke="#2b7fc1" stroke-width="3" stroke-linejoin="round"/><path d="M30 10 L38 10 M56 14 L54 7 L60 7" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+  walk:'<svg viewBox="0 0 84 46" aria-hidden="true"><circle cx="44" cy="7" r="5" fill="#3a2414"/><path d="M44 13 L41 27 M41 27 L34 42 M41 27 L49 42 M43 17 L34 24 M43 17 L52 23" stroke="#e07b00" stroke-width="4" stroke-linecap="round" fill="none"/><rect x="45" y="14" width="7" height="9" rx="2" fill="#d9453b"/></svg>'
+};
+
+function taskHTML(task, highlight){
+  return task.lines.map(function(l){
+    var h=esc(l);
+    if(highlight){ var k=MODES[cur.mode].key; h=h.split(k).join("<mark>"+k+"</mark>"); }
+    return "<div>"+h+"</div>";
+  }).join("");
+}
+function showTitle(){
+  showOv('<div class="eyebrow">第十一課・上學任務</div><h2>從家裡出發，到學校去！</h2>'+
+    '<p>一共四段路。每一段先讀任務卡，選對交通工具，再從<b>家</b>開到<b>學校</b>。</p>'+
+    '<p>路上有三面題目旗：<b style="color:#f08a24">詞</b>彙、漢<b style="color:#16958a">字</b>、<b style="color:#7b55c7">句</b>型，全部答完才能進學校。小心別撞到路上的車！</p>'+
+    '<p class="hint">請先在上方填好學校、班級和姓名，再按「開始遊戲」。</p>'+
+    '<button class="primary" data-act="start" type="button">開始遊戲</button>');
+}
+function showChoose(){
+  var t=cur.task, html='<div class="eyebrow">第 '+(G.i+1)+' 段 / 共 4 段・任務卡</div>'+
+    '<div class="bubble" id="bub">'+taskHTML(t,false)+'</div>'+
+    '<div class="row"><button class="say" data-act="say" type="button">朗讀任務卡</button></div>'+
+    '<h3>'+esc(t.q)+'</h3><div class="modes">'+
+    MODE_ORDER.map(function(m){ return '<button class="mode" data-mode="'+m+'" type="button">'+ICON[m]+MODES[m].label+'</button>'; }).join("")+
+    '</div><p class="fb" id="fb"></p>';
+  showOv(html);
+  if($("o-tts").checked) speak(t.lines.join("")+"　"+t.q);
+}
+function chooseMode(btn){
+  var m=btn.dataset.mode;
+  if(m===cur.mode){
+    btn.classList.add("good"); sRight();
+    if(cur.firstTry){ G.score+=100; G.transportOK++; }
+    $("fb").className="fb ok"; $("fb").textContent = cur.firstTry ? "答對了！＋100　"+MODES[m].label+"出發！" : "對了！"+MODES[m].label+"出發！";
+    Array.prototype.forEach.call(ov.querySelectorAll(".mode"), function(b){ b.disabled=true; });
+    setTimeout(function(){ hideOv(); state="drive"; toast("用方向鍵從家開到學校，先拿三面題目旗"); }, 1000);
+  }else{
+    btn.classList.remove("bad"); void btn.offsetWidth; btn.classList.add("bad"); sWrong();
+    if(cur.firstTry){ G.wrong.push({q:"交通："+cur.task.q, a:MODES[cur.mode].label, you:MODES[m].label}); }
+    cur.firstTry=false;
+    $("bub").innerHTML=taskHTML(cur.task,true);
+    $("fb").className="fb no"; $("fb").textContent="再讀一次任務卡，看看畫黃色的詞。";
+  }
+}
+
+var curQ=null, orderPicked=[];
+function showQuestion(cat){
+  var bag=G.bags[cat]; if(!bag.length) G.bags[cat]=bag=buildBags()[cat];
+  curQ=bag.pop()(); curQ.answered=false; G.total++;
+  var label={"詞":"詞彙","字":"漢字","句":"句型"}[cat];
+  var html='<span class="chip '+cat+'">'+label+'</span><div class="prompt">'+curQ.prompt+'</div>';
+  if(curQ.order){
+    orderPicked=[];
+    html+='<div class="slot" id="slot"></div><div class="tray">'+curQ.tokens.map(function(t,i){
+      return '<button class="tok" data-tok="'+i+'" type="button">'+esc(t)+'</button>'; }).join("")+'</div>'+
+      '<div class="row"><button data-act="reset" type="button">重排</button><button class="primary" data-act="check" type="button">確定</button></div>';
+  }else{
+    var hint=$("o-zy").checked && !curQ.noHint;
+    html+='<div class="choices'+(curQ.long?' long':'')+'">'+curQ.opts.map(function(o,i){
+      return '<button class="choice" data-ans="'+esc(o.t)+'" type="button"><span class="k">'+(i+1)+'</span>'+esc(o.t)+
+        (hint&&o.z?'<small>'+esc(o.z)+'</small>':'')+'</button>'; }).join("")+'</div>';
+  }
+  html+='<p class="fb" id="fb"></p><div class="row" id="qact"></div>';
+  showOv(html);
+}
+function answer(ok, yours){
+  if(curQ.answered) return; curQ.answered=true;
+  var fb=$("fb");
+  if(ok){ G.right++; G.score+=100; sRight(); fb.className="fb ok"; fb.textContent="答對了！＋100";
+    setTimeout(closeQuestion, 900);
+  }else{
+    sWrong(); fb.className="fb no"; fb.innerHTML="正確答案是「"+esc(curQ.ans)+"」";
+    G.wrong.push({q:curQ.tag, a:curQ.ans, you:yours});
+    $("qact").innerHTML='<button class="primary" data-act="close" type="button">知道了，繼續</button>';
+    if($("o-tts").checked) speak(curQ.ans);
+  }
+}
+function closeQuestion(){
+  hideOv(); state="drive"; held.length=0; bufT=0;
+  if(cur.done>=3) toast("題目旗全部完成！開到學校吧"); else toast("還有 "+(3-cur.done)+" 面題目旗");
+}
+function showArrive(){
+  hideOv();
+  var t=cur.task, last=G.i>=3;
+  showOv('<div class="eyebrow">第 '+(G.i+1)+' 段完成</div><h2>到學校了！</h2>'+
+    '<div class="bubble">'+esc(t.recap)+'</div>'+
+    '<div class="row"><button class="say" data-act="sayrecap" type="button">朗讀句子</button></div>'+
+    '<div class="stat"><div><b>'+Math.round(cur.t)+'</b><span>本段秒數</span></div><div><b>＋'+cur.bonus+'</b><span>到校獎勵</span></div><div><b>'+G.score+'</b><span>目前分數</span></div></div>'+
+    '<button class="primary" data-act="next" type="button">'+(last?"看成績單":"下一段")+'</button>');
+  if($("o-tts").checked) speak(t.recap);
+}
+function fmt(s){ s=Math.round(s); return Math.floor(s/60)+":"+("0"+s%60).slice(-2); }
+function endGame(reason){
+  state="result"; $("btn-quit").hidden=true;
+  G.seconds=Math.round(G.seconds); G.reason=reason;
+  var acc=G.total?Math.round(G.right/G.total*100):0;
+  var wl=G.wrong.length ? '<ol class="wronglist">'+G.wrong.map(function(w){
+      return "<li>"+esc(w.q)+"　正解 <b>"+esc(w.a)+"</b>"+(w.you?"（你選："+esc(w.you)+"）":"")+"</li>"; }).join("")+"</ol>"
+    : '<p class="hint">全部答對，太厲害了！</p>';
+  showOv('<div class="eyebrow">'+esc(G.school)+'　'+esc(G.cls)+'　'+esc(G.name)+'</div>'+
+    '<h2>'+(reason==="完成"?"四段路都完成了！":"本次遊戲成績")+'</h2>'+
+    '<div class="stat"><div><b>'+G.score+'</b><span>分數</span></div><div><b>'+fmt(G.seconds)+'</b><span>花費時間</span></div><div><b>'+G.right+'/'+G.total+'</b><span>答對題數</span></div>'+
+    '<div><b>'+G.transportOK+'/4</b><span>交通工具一次選對</span></div><div><b>'+acc+'%</b><span>正確率</span></div><div><b>'+G.bumps+'</b><span>撞車次數</span></div></div>'+
+    '<p class="hint">要再練習的題目</p>'+wl+
+    '<p class="sync" id="sync2"></p><button class="primary" data-act="again" type="button">再玩一次</button>');
+  if(!G.sent){ G.sent=true; upload(record(acc)); }
+}
+function record(acc){
+  return {id:G.id, school:G.school, cls:G.cls, name:G.name, ip:IP,
+    score:G.score, right:G.right, total:G.total, acc:acc, transport:G.transportOK+"/4",
+    seconds:G.seconds, stages:G.stageTimes.join("；"), bumps:G.bumps,
+    wrongCount:G.wrong.length, wrong:G.wrong.map(function(w){ return w.q+"＝"+w.a+(w.you?"（選"+w.you+"）":""); }).join("；"),
+    reason:G.reason, lesson:LESSON, ua:navigator.userAgent.slice(0,180)};
+}
+
+ov.addEventListener("click", function(e){
+  var b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.mode){ chooseMode(b); return; }
+  if(b.classList.contains("choice")){
+    var ok=b.dataset.ans===curQ.ans;
+    Array.prototype.forEach.call(ov.querySelectorAll(".choice"), function(c){ c.disabled=true; if(c.dataset.ans===curQ.ans) c.classList.add("good"); });
+    if(!ok) b.classList.add("bad");
+    answer(ok, b.dataset.ans); return;
+  }
+  if(b.dataset.tok!==undefined){
+    if(curQ.answered) return;
+    var i=+b.dataset.tok;
+    if(b.closest("#slot")){ orderPicked.splice(orderPicked.indexOf(i),1); }
+    else if(orderPicked.indexOf(i)<0){ orderPicked.push(i); }
+    renderOrder(); return;
+  }
+  switch(b.dataset.act){
+    case "start": tryStart(); break;
+    case "say": speak(cur.task.lines.join("")+"　"+cur.task.q); break;
+    case "sayrecap": speak(cur.task.recap); break;
+    case "reset": if(!curQ.answered){ orderPicked=[]; renderOrder(); } break;
+    case "check":
+      if(curQ.answered) break;
+      if(orderPicked.length<curQ.tokens.length){ $("fb").className="fb no"; $("fb").textContent="還有詞語沒有排進去。"; break; }
+      var s=orderPicked.map(function(i){ return curQ.tokens[i]; }).join("");
+      answer(curQ.accept.indexOf(s)>=0, s+curQ.end); break;
+    case "close": closeQuestion(); break;
+    case "next": G.i++; if(G.i>=4) endGame("完成"); else beginStage(); break;
+    case "again": tryStart(); break;
+  }
+});
+function renderOrder(){
+  $("slot").innerHTML=orderPicked.map(function(i){ return '<button class="tok" data-tok="'+i+'" type="button">'+esc(curQ.tokens[i])+'</button>'; }).join("")+
+    (orderPicked.length===curQ.tokens.length?'<span class="prompt">'+curQ.end+'</span>':'');
+  Array.prototype.forEach.call(ov.querySelectorAll(".tray .tok"), function(t){ t.disabled = orderPicked.indexOf(+t.dataset.tok)>=0; });
+}
+function tryStart(){
+  var nm=$("f-name").value.trim();
+  if(!nm){ $("f-name").focus(); toast("請先輸入姓名"); return; }
+  lsSet(LS.sc,$("f-school").value.trim()); lsSet(LS.cl,$("f-class").value.trim()); lsSet(LS.nm,nm);
+  audio(); newGame();
+  $("cv").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+$("btn-start").addEventListener("click", tryStart);
+$("btn-quit").addEventListener("click", function(){
+  if(!G || state==="result" || state==="title") return;
+  endGame("中途結束");
+});
+
+/* ============================================================
+   六、每一格畫面更新
+   ============================================================ */
+function update(dt){
+  bufT-=dt;
+  if(state==="choose"||state==="drive"||state==="question"){ G.seconds+=dt; cur.t+=dt; }
+  if(state!=="drive") return;
+  var p=player;
+  p.cd-=dt;
+  if(p.stun>0){ p.stun-=dt; }
+  else if(p.go){
+    var w=want(), atC = p.x===cx(p.gx) && p.y===cx(p.gy);
+    if(w!==null && w===(p.dir+2)%4 && !atC){ p.dir=w; p.gx+=DX[w]; p.gy+=DY[w]; }
+    stepCar(p, MODES[cur.mode].speed*T*dt, function(e){
+      var ww=want();
+      if(ww!==null && pass(e.gx+DX[ww],e.gy+DY[ww])){ e.dir=ww; bufT=0; }
+    });
+  }
+  traffic.forEach(function(c){
+    if(c.wait>0){ c.wait-=dt; return; }
+    stepCar(c, 1.8*T*dt, function(e){
+      var rev=(e.dir+2)%4, o=[0,1,2,3].filter(function(d){ return d!==rev && pass(e.gx+DX[d],e.gy+DY[d]); });
+      if(!o.length) o=[rev]; e.dir=pick(o);
+    });
+    if(p.cd<=0 && Math.hypot(c.x-p.x,c.y-p.y)<T*.75){
+      p.cd=2; p.stun=.9; G.bumps++; G.score=Math.max(0,G.score-20); sBump(); toast("小心！撞到車了，－20");
+      var od=c.dir; c.dir=(od+2)%4; if(!(c.x===cx(c.gx)&&c.y===cx(c.gy))){ c.gx+=DX[c.dir]; c.gy+=DY[c.dir]; } c.wait=.6;
+    }
+  });
+  for(var i=0;i<flags.length;i++){
+    var f=flags[i];
+    if(!f.got && Math.hypot(cx(f.x)-p.x, cx(f.y)-p.y)<T*.55){
+      f.got=true; cur.done++; sFlag(); held.length=0; state="question"; showQuestion(f.cat); return;
+    }
+  }
+  if(Math.hypot(cx(SCHOOL.x)-p.x, cx(SCHOOL.y)-p.y)<T*.5){
+    if(cur.done>=3) finishStage();
+    else if(!cur.warned || cur.warned<clock-2){ cur.warned=clock; toast("還有 "+(3-cur.done)+" 面題目旗，答完才能進學校"); }
+  }
+}
+
+function drawSprite(spr,x,y,dir,extra,scale){
+  ctx.save(); ctx.translate(x,y); if(scale) ctx.scale(scale,scale); ctx.rotate(dir*Math.PI/2+(extra||0));
+  ctx.drawImage(spr,-24,-32,48,64); ctx.restore();
+}
+function drawFlag(f,t){
+  var x=cx(f.x), y=cx(f.y), col=CATCOL[f.cat], p=.6+.4*Math.sin(t*5+f.x);
+  var gg=ctx.createRadialGradient(x,y,4,x,y,22); gg.addColorStop(0,"rgba(255,255,255,"+(.55*p)+")"); gg.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(x,y,22,0,7); ctx.fill();
+  ctx.fillStyle="rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(x+2,y+4,13,11,0,0,7); ctx.fill();
+  var cg=ctx.createRadialGradient(x-4,y-5,2,x,y,14); cg.addColorStop(0,shade(col,60)); cg.addColorStop(1,shade(col,-25));
+  ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(x,y,13,0,7); ctx.fill();
+  ctx.strokeStyle="#fff"; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle="#fff"; ctx.font="bold 15px "+getComputedStyle(document.body).fontFamily; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(f.cat,x,y+1);
+}
+function drawGoal(t){
+  var dn=cur?cur.done:0, x=cx(SCHOOL.x), y=cx(SCHOOL.y), ok=dn>=3, p=.5+.5*Math.sin(t*5);
+  ctx.strokeStyle= ok ? "rgba(80,230,130,"+(.6+.4*p)+")" : "rgba(255,255,255,.55)";
+  ctx.lineWidth= ok?4:2; ctx.setLineDash(ok?[]:[5,4]); ctx.beginPath(); ctx.arc(x,y,ok?15+p*4:15,0,7); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=ok?"#2f9e5b":"rgba(30,40,50,.75)"; ctx.font="bold 11px "+getComputedStyle(document.body).fontFamily;
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(ok?"終點":"還差"+(3-dn),x,y);
+}
+function vehicleSprite(){ return SP[cur.mode]; }
+function drawView(t){
+  var camX=Math.round(Math.max(0,Math.min(W*T-VW,player.x-VW/2))), camY=Math.round(Math.max(0,Math.min(H*T-VH,player.y-VH*.55)));
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,VW,VH); ctx.clip();
+  ctx.drawImage(mapCv,camX*SC,camY*SC,VW*SC,VH*SC,0,0,VW,VH);
+  ctx.translate(-camX,-camY);
+  drawGoal(t);
+  flags.forEach(function(f){ if(!f.got) drawFlag(f,t); });
+  traffic.forEach(function(c){ drawSprite(SP.traffic[c.col],c.x,c.y,c.dir); });
+  if(state!=="choose"&&state!=="title"){
+    var pg=Math.sin(t*6)*.5+.5;
+    ctx.strokeStyle="rgba(79,216,255,"+(.6+.35*pg)+")"; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(player.x,player.y,24,0,7); ctx.stroke();
+    var wob = player.stun>0 ? Math.sin(t*40)*.35 : 0;
+    var bob = cur.mode==="walk" && player.go && state==="drive" ? 1+Math.sin(t*14)*.04 : 1;
+    drawSprite(vehicleSprite(),player.x,player.y,player.dir,wob,bob);
+  }
+  ctx.restore();
+}
+function drawPanel(t){
+  var F=getComputedStyle(document.body).fontFamily;
+  ctx.fillStyle="#13202c"; ctx.fillRect(PX,0,CW-PX,VH);
+  var L=PX+14, BW=CW-PX-28;
+  ctx.textAlign="left"; ctx.textBaseline="alphabetic";
+  function label(s,y){ ctx.fillStyle="#8ea3b5"; ctx.font="12px "+F; ctx.fillText(s,L,y); }
+  function val(s,y,c){ ctx.fillStyle=c||"#fff"; ctx.font="bold 22px "+F; ctx.fillText(s,L,y); }
+  label("路段",24); val((G?Math.min(G.i+1,4):1)+" / 4",48);
+  label("交通工具",76);
+  if(cur && state!=="choose" && state!=="title"){ drawSprite(vehicleSprite(),L+18,104,1,0,.75); ctx.fillStyle="#ffd34d"; ctx.font="bold 15px "+F; ctx.fillText(MODES[cur.mode].label,L+44,110); }
+  else { ctx.fillStyle="#8ea3b5"; ctx.font="15px "+F; ctx.fillText("讀任務卡",L,108); }
+  label("總時間",146); val(fmt(G?G.seconds:0),170);
+  label("分數",198); val(String(G?G.score:0),222,"#ffd34d");
+  label("題目旗",252);
+  ["詞","字","句"].forEach(function(c,i){
+    var f=flags.filter(function(x){ return x.cat===c; })[0], done=f&&f.got, x=L+16+i*40, y=276;
+    ctx.fillStyle=done?CATCOL[c]:"rgba(255,255,255,.08)"; ctx.beginPath(); ctx.arc(x,y,15,0,7); ctx.fill();
+    ctx.strokeStyle=CATCOL[c]; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=done?"#fff":CATCOL[c]; ctx.font="bold 15px "+F; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(c,x,y+1);
+    ctx.textAlign="left"; ctx.textBaseline="alphabetic";
+  });
+  var rw=BW, rh=rw*H/W, ry=VH-rh-16; label("地圖",ry-8);
+  ctx.fillStyle="#0a121a"; ctx.fillRect(L,ry,rw,rh);
+  var sx=rw/(W*T), sy=rh/(H*T);
+  ctx.fillStyle="rgba(98,163,79,.35)";
+  for(var y=0;y<H;y++) for(var x=0;x<W;x++) if(!isRoad(x,y)) ctx.fillRect(L+x*T*sx,ry+y*T*sy,T*sx+.5,T*sy+.5);
+  ctx.fillStyle="#ff7a1a"; rocks.forEach(function(r){ ctx.fillRect(L+r.x*T*sx,ry+r.y*T*sy,T*sx,T*sy); });
+  ctx.fillStyle="#d9453b"; ctx.fillRect(L+cx(START.x)*sx-4,ry+cx(START.y)*sy-4,8,8);
+  ctx.fillStyle=cur&&cur.done>=3?"#50e682":"#ffd34d"; ctx.beginPath(); ctx.arc(L+cx(SCHOOL.x)*sx,ry+cx(SCHOOL.y)*sy,5,0,7); ctx.fill();
+  flags.forEach(function(f){ if(f.got) return; ctx.fillStyle=CATCOL[f.cat]; ctx.beginPath(); ctx.arc(L+cx(f.x)*sx,ry+cx(f.y)*sy,4,0,7); ctx.fill(); });
+  ctx.fillStyle="#b8c2cc"; traffic.forEach(function(c){ ctx.fillRect(L+c.x*sx-2,ry+c.y*sy-2,4,4); });
+  if(Math.floor(t*4)%2||state!=="drive"){ ctx.fillStyle="#4fd8ff"; ctx.beginPath(); ctx.arc(L+player.x*sx,ry+player.y*sy,3.5,0,7); ctx.fill(); }
+  ctx.font="11px "+F; ctx.fillStyle="#8ea3b5";
+  ctx.fillText("■家  ●學校",L,ry-24);
+}
+function frame(now){
+  var dt=Math.min(.05,(now-lastTime)/1000); lastTime=now; clock+=dt;
+  if(G) update(dt);
+  ctx.setTransform(SC,0,0,SC,0,0);
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,CW,CH);
+  drawView(clock); drawPanel(clock);
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   七、成績上傳（Google 試算表）
+   ============================================================ */
+var IP="";
+(function(){
+  try{
+    var ctl = window.AbortController ? new AbortController() : null;
+    if(ctl) setTimeout(function(){ ctl.abort(); }, 3500);
+    fetch("https://api.ipify.org?format=json", ctl?{signal:ctl.signal}:{}).then(function(r){ return r.json(); })
+      .then(function(o){ IP=(o&&o.ip)||""; }).catch(function(){});
+  }catch(e){}
+})();
+function endpoint(){ return (ENDPOINT||"").trim(); }
+function token(){ return (TOKEN||"").trim(); }
+function withToken(url, extra){
+  var q=[]; if(extra) q.push(extra); if(token()) q.push("token="+encodeURIComponent(token()));
+  return q.length ? url+(url.indexOf("?")<0?"?":"&")+q.join("&") : url;
+}
+function setSync(msg, cls){
+  [$("sync"), $("sync2")].forEach(function(el){ if(!el) return; el.textContent=msg||""; el.className="sync"+(cls?" "+cls:""); });
+}
+function queueGet(){ try{ return JSON.parse(lsGet(LS.q,"[]"))||[]; }catch(e){ return []; } }
+function queueSet(a){ lsSet(LS.q, JSON.stringify(a.slice(-80))); }
+function send(rec){
+  var url=endpoint(); if(!url) return Promise.reject(new Error("no-endpoint"));
+  var payload={}; for(var k in rec) if(Object.prototype.hasOwnProperty.call(rec,k)) payload[k]=rec[k];
+  if(!payload.ip) payload.ip=IP;
+  payload.token=token();
+  var body=JSON.stringify(payload);
+  return fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+    .then(function(r){ return r.json(); })
+    .then(function(o){ if(o&&o.ok) return o; var m=(o&&o.error)?o.error:"server"; var err=new Error(m); err.fatal=/token/.test(m); throw err; })
+    .catch(function(err){
+      if(err&&err.fatal) throw err;
+      return fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+        .then(function(){ return {ok:true, blind:true}; });
+    });
+}
+function upload(rec){
+  if(!endpoint()){ setSync("尚未設定試算表網址，本次成績只顯示在畫面上。"); return; }
+  setSync("成績上傳中…","busy");
+  send(rec).then(function(o){
+    setSync(o.blind?"成績已送出（無法確認結果，請開試算表查看）。":"成績已寫入 Google 試算表。","ok");
+  }, function(err){
+    if(err&&err.fatal){ setSync("成績沒有寫入（通行碼不符），請通知老師。","bad"); return; }
+    var q=queueGet(); q.push(rec); queueSet(q);
+    setSync("上傳失敗，已暫存在本機（共 "+q.length+" 筆），連上網後按「補傳待上傳成績」。","bad");
+  });
+}
+function flushQueue(){
+  var q=queueGet();
+  if(!q.length){ setSync("目前沒有待上傳的成績。"); return; }
+  if(!endpoint()){ setSync("尚未設定試算表網址，無法補傳。","bad"); return; }
+  setSync("補傳 "+q.length+" 筆成績…","busy");
+  var left=[], i=0;
+  (function next(){
+    if(i>=q.length){ queueSet(left); setSync(left.length?"仍有 "+left.length+" 筆補傳失敗。":"待上傳成績已全部補傳完成。", left.length?"bad":"ok"); return; }
+    var rec=q[i++]; send(rec).then(next, function(){ left.push(rec); next(); });
+  })();
+}
+$("btn-flush").addEventListener("click", flushQueue);
+$("btn-test").addEventListener("click", function(){
+  if(!endpoint()){ setSync("尚未設定試算表網址：請老師把 Apps Script 網址貼進檔案裡的 ENDPOINT。","bad"); return; }
+  setSync("測試中…","busy");
+  fetch(withToken(endpoint(),"top=1")).then(function(r){ return r.json(); }).then(function(o){
+    if(o&&o.ok) setSync("連線成功，試算表裡目前有 "+o.count+" 筆紀錄。","ok");
+    else setSync("連上了，但試算表回覆："+((o&&o.error)||"未知錯誤"),"bad");
+  }).catch(function(){ setSync("連不上試算表。請確認網址正確，且部署時「誰可以存取」設為「任何人」。","bad"); });
+});
+function loadLeaderboard(){
+  var url=endpoint(), msg=$("lb-msg"), tb=$("lb-table"); tb.innerHTML="";
+  if(!url){ msg.textContent="尚未設定試算表網址，無法讀取排行榜。"; return; }
+  msg.textContent="讀取中…";
+  fetch(withToken(url,"top=15")).then(function(r){ return r.json(); }).then(function(o){
+    if(o&&o.ok===false&&/token/.test(o.error||"")){ msg.textContent="通行碼不符，無法讀取排行榜。"; return; }
+    if(!o||!o.ok||!o.list) throw new Error("bad");
+    if(!o.list.length){ msg.textContent="試算表裡還沒有成績。"; return; }
+    msg.textContent="共 "+o.count+" 筆紀錄，以下為每個人的最高分（同分時間較短者在前）。";
+    tb.innerHTML="<tr><th></th><th>姓名</th><th>班級</th><th>學校</th><th class='sc'>最高分</th><th class='sc'>時間</th></tr>"+
+      o.list.map(function(x,i){ return "<tr><td class='n'>"+(i+1)+"</td><td>"+esc(x.name||"")+"</td><td>"+esc(x.cls||"")+"</td><td>"+esc(x.school||"")+
+        "</td><td class='sc'>"+x.score+"</td><td class='sc'>"+fmt(x.seconds||0)+"</td></tr>"; }).join("");
+  }).catch(function(){ msg.textContent="讀不到排行榜。請確認網址正確，且部署時「誰可以存取」設為「任何人」。"; });
+}
+$("lb-box").addEventListener("toggle", function(){ if($("lb-box").open) loadLeaderboard(); });
+
+/* ============================================================
+   八、課文參考區與啟動
+   ============================================================ */
+$("lesson-text").innerHTML=TEXT.map(function(t){ return "<p><span class='sp'>"+esc(t[0])+"：</span>"+esc(t[1])+"</p>"; }).join("");
+$("vocab-table").innerHTML="<tr><th></th><th>生詞</th><th>注音</th><th>拼音</th><th>英譯</th></tr>"+
+  WORDS.map(function(o){ return "<tr><td class='n'>"+o.n+"</td><td class='w'>"+esc(o.w)+"</td><td>"+esc(o.z)+"</td><td>"+esc(o.p)+"</td><td>"+esc(o.e)+"</td></tr>"; }).join("");
+$("hanzi-chips").innerHTML=HANZI.map(function(h){ return "<span class='hz'>"+h.c+"<small>"+h.z+"　"+h.s+"畫　"+h.r+"部</small></span>"; }).join("");
+$("read-chips").innerHTML=READ.map(function(h){ return "<span class='hz'>"+h.c+"<small>"+h.z+(h.sc?"　（"+h.sc+"）":"")+"</small></span>"; }).join("");
+
+$("f-school").value=lsGet(LS.sc,DEFAULT_SCHOOL)||DEFAULT_SCHOOL;
+$("f-class").value=lsGet(LS.cl,DEFAULT_CLASS)||DEFAULT_CLASS;
+$("f-name").value=lsGet(LS.nm,"");
+try{ var op=JSON.parse(lsGet(LS.opt,"{}")); ["o-zy","o-tts","o-sfx"].forEach(function(id){ if(id in op) $(id).checked=!!op[id]; }); }catch(e){}
+["o-zy","o-tts","o-sfx"].forEach(function(id){ $(id).addEventListener("change", function(){
+  var o={}; ["o-zy","o-tts","o-sfx"].forEach(function(k){ o[k]=$(k).checked; }); lsSet(LS.opt, JSON.stringify(o)); }); });
+
+SP=makeSprites();
+genMap(true); buildCity(); placeCars(true);
+showTitle();
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ if(state==="title"){ buildCity(); } });
+document.addEventListener("visibilitychange", function(){ lastTime=performance.now(); });
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
