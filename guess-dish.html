@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>猜猜這是什麼菜？｜兩隊搶答</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+/* Layout: 投影用。上排兩隊計分＋題數；中間左黑板線索、右食譜牆；下排兩隊搶答鈕夾著老師控制鈕 */
+:root{
+  --wall:#efe4cc; --wall-d:#e2d3b3; --ink:#2a221b; --muted:#6c5d4e;
+  --chalk:#f3f0e4; --chalk-dim:#b9c6bb; --chalk-y:#ffe27a; --board:#24493b; --board-d:#1b392e; --frame:#9b6a3c;
+  --card:#fffaf0; --line:#dccbab;
+  --a:#d9482f; --a-l:#fde6e0; --b:#2c74c4; --b-l:#e2eefb; --ok:#2e8b57; --ok-l:#e2f3e8; --no:#c0392b;
+  --kai:"LXGW WenKai TC","BiauKai","DFKai-SB","KaiTi","STKaiti",serif;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--wall);color:var(--ink);font-family:var(--sans);line-height:1.5;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+button{font:inherit;cursor:pointer;color:inherit}
+button:focus-visible{outline:4px solid var(--chalk-y);outline-offset:2px}
+kbd{font-family:var(--sans);font-size:.72em;font-weight:700;background:rgba(255,255,255,.85);color:var(--ink);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:0 .4em;margin:0 .1em}
+
+.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr auto auto;gap:1.4vh;padding:1.4vh 1.4vw;max-width:1900px;margin:0 auto}
+
+/* 上排 */
+.top{display:grid;grid-template-columns:1fr auto 1fr;gap:1.2vw;align-items:stretch}
+.team{display:flex;align-items:center;justify-content:space-between;gap:1vw;border-radius:18px;padding:.8vh 1.4vw;color:#fff;
+  transition:opacity .2s, box-shadow .2s}
+.team.a{background:var(--a)} .team.b{background:var(--b);flex-direction:row-reverse}
+.team .nm{font-family:var(--kai);font-weight:700;font-size:clamp(1.3rem,2.5vw,2.8rem);line-height:1.15}
+.team .nm small{display:block;font-family:var(--sans);font-weight:400;font-size:.45em;opacity:.9}
+.team .sc{font-size:clamp(2.2rem,5vw,5.4rem);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.team.locked{opacity:.4}
+.team.on{box-shadow:0 0 0 6px var(--chalk-y)}
+.mid{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 .5vw;min-width:13vw}
+.mid .rd{font-family:var(--kai);font-size:clamp(1.1rem,2vw,2.2rem);font-weight:700;line-height:1.2}
+.mid .pts{font-size:clamp(.85rem,1.3vw,1.4rem);color:var(--muted)}
+.mid .pts b{color:var(--ink);font-size:1.35em}
+
+/* 中間 */
+.main{display:grid;grid-template-columns:1.2fr 1fr;gap:1.4vw;min-height:0}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+.board{position:relative;background:var(--board);background-image:radial-gradient(120% 90% at 30% 20%,rgba(255,255,255,.06),transparent 60%);
+  border:clamp(8px,1vw,16px) solid var(--frame);border-radius:12px;color:var(--chalk);padding:2vh 2vw;display:flex;flex-direction:column;gap:1.4vh;min-height:52vh;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.35),0 6px 0 #7b522c}
+.board::after{content:"";position:absolute;left:8%;right:8%;bottom:-1px;height:8px;background:#c9a77c;border-radius:4px 4px 0 0;opacity:.8}
+.board h2{margin:0;font-family:var(--kai);font-weight:700;font-size:clamp(1.4rem,2.6vw,3rem);color:var(--chalk-y);letter-spacing:.06em}
+.banner{border-radius:12px;padding:.8vh 1.2vw;font-weight:700;font-size:clamp(1rem,1.7vw,1.9rem);color:#fff}
+.banner.a{background:var(--a)} .banner.b{background:var(--b)}
+.banner small{font-weight:400;font-size:.7em;opacity:.95}
+ol.clues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1.1vh;flex:1}
+ol.clues li{display:flex;gap:1vw;align-items:baseline;font-family:var(--kai);font-size:clamp(1.3rem,2.7vw,3.2rem);line-height:1.35;color:var(--chalk-dim)}
+ol.clues li .no{flex:none;display:inline-grid;place-items:center;width:1.6em;height:1.6em;border:2px solid currentColor;border-radius:50%;font-family:var(--sans);font-weight:700;font-size:.55em;transform:translateY(-.15em)}
+ol.clues li.new{color:var(--chalk)}
+ol.clues li.new .tx{border-bottom:3px dashed var(--chalk-y)}
+ol.clues li.wait{color:rgba(243,240,228,.22)}
+ol.clues li .tx button{font-family:var(--sans);font-size:.5em;background:transparent;border:2px solid var(--chalk-dim);color:var(--chalk);border-radius:8px;padding:.1em .6em}
+.appear{animation:chalk .5s ease-out}
+@keyframes chalk{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+.timer{height:8px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.timer i{display:block;height:100%;width:0;background:var(--chalk-y);border-radius:99px}
+.reveal{display:flex;flex-direction:column;gap:1.4vh;flex:1}
+.reveal .dish{display:flex;align-items:center;gap:1.2vw;font-family:var(--kai);font-weight:700;font-size:clamp(2rem,4.6vw,5.4rem);color:var(--chalk-y);line-height:1.1}
+.reveal .dish span{font-size:1.1em}
+.reveal .who{font-size:clamp(1rem,1.8vw,2rem);font-weight:700}
+.reveal .how{font-family:var(--kai);font-size:clamp(1.15rem,2.1vw,2.5rem);line-height:1.6;color:var(--chalk)}
+.reveal .how b{color:var(--chalk-y);font-weight:700}
+.reveal .used{font-size:clamp(.85rem,1.2vw,1.3rem);color:var(--chalk-dim)}
+.chalkbtn{align-self:flex-start;background:transparent;border:2px solid var(--chalk);color:var(--chalk);border-radius:10px;padding:.3em 1em;font-size:clamp(.9rem,1.3vw,1.4rem)}
+
+/* 食譜牆 */
+.menu{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:1.1vh 1vw;min-height:0}
+.dish-card{position:relative;text-align:left;background:var(--card);border:3px solid var(--line);border-radius:14px;padding:1vh 1vw;display:flex;flex-direction:column;gap:.4vh;
+  box-shadow:0 3px 0 var(--wall-d);cursor:default}
+.dish-card::before{content:"";position:absolute;top:-7px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#d9482f;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.dish-card .hd{display:flex;align-items:center;gap:.5vw;font-family:var(--kai);font-weight:700;font-size:clamp(1.25rem,2.1vw,2.5rem);line-height:1.15}
+.dish-card .hd .k{margin-left:auto;font-family:var(--sans);font-size:.5em;color:var(--muted)}
+.dish-card .mat,.dish-card .how{font-family:var(--kai);font-size:clamp(.88rem,1.15vw,1.35rem);line-height:1.45}
+.dish-card .mat b,.dish-card .how b{font-family:var(--sans);font-size:.85em;color:var(--muted);font-weight:700;margin-right:.3em}
+.dish-card .how{color:#4a3d31}
+.menu.pick .dish-card{cursor:pointer}
+.menu.pick.a .dish-card:not(:disabled):hover{border-color:var(--a);background:var(--a-l)}
+.menu.pick.b .dish-card:not(:disabled):hover{border-color:var(--b);background:var(--b-l)}
+.dish-card.wrong{opacity:.5;border-color:var(--no)}
+.dish-card.wrong .hd{text-decoration:line-through;text-decoration-color:var(--no);text-decoration-thickness:3px}
+.dish-card.right{border-color:var(--ok);background:var(--ok-l);box-shadow:0 0 0 4px var(--ok)}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@media (prefers-reduced-motion:reduce){.appear,.shake{animation:none}}
+
+/* 下排 */
+.bottom{display:grid;grid-template-columns:1fr auto 1fr;gap:1.2vw;align-items:stretch}
+.buzz{border:0;border-radius:18px;color:#fff;font-family:var(--kai);font-weight:700;font-size:clamp(1.4rem,2.8vw,3.2rem);padding:1.2vh 1vw;
+  box-shadow:0 7px 0 rgba(0,0,0,.25);transition:transform .08s, box-shadow .08s, opacity .2s}
+.buzz.a{background:var(--a)} .buzz.b{background:var(--b)}
+.buzz:active:not(:disabled){transform:translateY(5px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.buzz:disabled{opacity:.35;cursor:default}
+.ctl{display:flex;flex-wrap:wrap;gap:.6vw;align-items:center;justify-content:center;max-width:46vw}
+.ctl button{background:#fff;border:2px solid var(--line);border-radius:12px;padding:.5em 1em;font-weight:700;font-size:clamp(.85rem,1.2vw,1.3rem)}
+.ctl button.main-btn{background:var(--ink);border-color:var(--ink);color:#fff}
+.ctl button:disabled{opacity:.35;cursor:default}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5em 1.5em;font-size:clamp(.75rem,.95vw,1rem);color:var(--muted)}
+.foot .keys{display:flex;flex-wrap:wrap;gap:.3em 1em}
+.sync{margin:0}.sync.ok{color:var(--ok)}.sync.bad{color:var(--no)}.sync.busy{color:var(--b)}
+@media (max-width:900px){.bottom{grid-template-columns:1fr 1fr}.ctl{grid-column:1/-1;grid-row:2;max-width:none}}
+
+/* 設定與結束畫面 */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(42,34,27,.55);display:grid;place-items:center;padding:3vh 3vw;overflow:auto}
+.panel{background:var(--card);border-radius:18px;padding:2.4vh 2.4vw;width:min(980px,100%);display:flex;flex-direction:column;gap:1.6vh;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.panel h1{margin:0;font-family:var(--kai);font-size:clamp(1.8rem,3.4vw,3.4rem);line-height:1.2}
+.panel p{margin:0}
+.panel .lead{color:var(--muted);font-size:clamp(.95rem,1.25vw,1.25rem)}
+.form{display:grid;grid-template-columns:repeat(4,1fr);gap:1vh 1vw}
+@media (max-width:700px){.form{grid-template-columns:1fr 1fr}}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:.85rem;color:var(--muted);min-width:0}
+.form label.w2{grid-column:span 2}
+.form input,.form select{font:inherit;font-size:1.05rem;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%;min-width:0}
+.form input.ta{border-left:6px solid var(--a)} .form input.tb{border-left:6px solid var(--b)}
+.checks{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:1rem}
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.rules{margin:0;padding-left:1.3em;font-size:clamp(.92rem,1.15vw,1.15rem);line-height:1.7}
+.rules b{color:var(--a)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row.end{justify-content:flex-end}
+.big-btn{background:var(--ink);color:#fff;border:0;border-radius:12px;padding:.6em 1.6em;font-size:clamp(1.05rem,1.5vw,1.5rem);font-weight:700}
+.soft-btn{background:#fff;border:2px solid var(--line);border-radius:12px;padding:.5em 1.2em;font-size:clamp(.95rem,1.2vw,1.2rem);font-weight:700}
+.result{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw}
+.result div{border-radius:14px;padding:1.4vh 1.2vw;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.result .a{background:var(--a)} .result .b{background:var(--b)}
+.result b{font-size:clamp(2rem,4vw,4rem);font-variant-numeric:tabular-nums}
+.result span{font-family:var(--kai);font-size:clamp(1.2rem,2vw,2.2rem);font-weight:700}
+.result small{display:block;font-family:var(--sans);font-size:.55em;font-weight:400}
+.win{font-family:var(--kai);font-weight:700;font-size:clamp(1.6rem,3vw,3rem);text-align:center}
+table{border-collapse:collapse;width:100%;font-size:clamp(.85rem,1.05vw,1.05rem)}
+th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left}
+td.k{font-family:var(--kai);font-size:1.15em}
+.scroll{overflow:auto;max-height:36vh}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <section class="top" aria-label="計分">
+    <div class="team a" id="team-a"><div class="nm" id="nm-a">甲隊<small id="ok-a">答對 0 題</small></div><div class="sc" id="sc-a">0</div></div>
+    <div class="mid"><div class="rd" id="rd">猜猜這是什麼菜？</div><div class="pts" id="pts">課堂活動：我是小廚師</div></div>
+    <div class="team b" id="team-b"><div class="nm" id="nm-b">乙隊<small id="ok-b">答對 0 題</small></div><div class="sc" id="sc-b">0</div></div>
+  </section>
+
+  <section class="main">
+    <div class="board" id="board" aria-live="polite"></div>
+    <div class="menu" id="menu" aria-label="黑板上的食譜"></div>
+  </section>
+
+  <section class="bottom">
+    <button class="buzz a" id="buzz-a" type="button" disabled>甲隊搶答 <kbd>A</kbd></button>
+    <div class="ctl">
+      <button class="main-btn" id="btn-next-clue" type="button" disabled>下一條線索 <kbd>空白</kbd></button>
+      <button id="btn-cancel" type="button" hidden>取消搶答 <kbd>Esc</kbd></button>
+      <button id="btn-reveal" type="button" disabled>公布答案 <kbd>R</kbd></button>
+      <button id="btn-say" type="button" disabled>再念一次</button>
+      <button id="btn-full" type="button">全螢幕</button>
+      <button id="btn-end" type="button" disabled>結束比賽</button>
+    </div>
+    <button class="buzz b" id="buzz-b" type="button" disabled>乙隊搶答 <kbd>L</kbd></button>
+  </section>
+
+  <footer class="foot">
+    <span class="keys"><span><kbd>A</kbd>／<kbd>L</kbd> 搶答</span><span><kbd>1</kbd>–<kbd>6</kbd> 選菜</span><span><kbd>空白</kbd> 下一條線索</span><span><kbd>R</kbd> 公布答案</span><span><kbd>Enter</kbd> 下一題</span></span>
+    <span><span class="sync" id="sync"></span>　學華語向前走 第五冊 第六課 Part IV 課堂活動</span>
+  </footer>
+</div>
+
+<!-- 設定 -->
+<div class="sheet" id="setup">
+  <div class="panel">
+    <h1>猜猜這是什麼菜？</h1>
+    <p class="lead">《學華語向前走》第五冊第六課 Part IV「我是小廚師」數位版。全班分成兩隊，看黑板上的線索，參考右邊的食譜，搶答老師要做的是哪一道菜。</p>
+    <div class="form">
+      <label class="w2" for="f-school">學校<input id="f-school"></label>
+      <label for="f-class">班級<input id="f-class"></label>
+      <label for="f-rounds">題數
+        <select id="f-rounds"><option value="6" selected>6 題（每道菜一次）</option><option value="12">12 題（每道菜兩次）</option><option value="4">4 題（快速版）</option></select></label>
+      <label class="w2" for="f-ta">第一隊隊名<input id="f-ta" class="ta" maxlength="10"></label>
+      <label class="w2" for="f-tb">第二隊隊名<input id="f-tb" class="tb" maxlength="10"></label>
+      <label class="w2" for="f-auto">線索出現方式
+        <select id="f-auto"><option value="0" selected>老師按「下一條線索」</option><option value="10">每 10 秒自動出現</option><option value="15">每 15 秒自動出現</option></select></label>
+      <label class="w2" for="f-pen">答錯扣分
+        <select id="f-pen"><option value="10" selected>答錯扣 10 分，這一題不能再搶</option><option value="0">答錯不扣分，這一題不能再搶</option></select></label>
+    </div>
+    <div class="checks">
+      <label for="o-tts"><input type="checkbox" id="o-tts" checked> 朗讀線索</label>
+      <label for="o-listen"><input type="checkbox" id="o-listen"> 聽力模式（線索只念、不顯示）</label>
+      <label for="o-how"><input type="checkbox" id="o-how" checked> 食譜顯示作法</label>
+      <label for="o-sfx"><input type="checkbox" id="o-sfx" checked> 音效</label>
+    </div>
+    <ol class="rules">
+      <li>每題最多 5 條線索，一條一條出現。<b>越早猜中分數越高</b>：第 1 條 50 分、第 2 條 40 分，一直到第 5 條 10 分。</li>
+      <li>想好答案就按搶答（甲隊 <kbd>A</kbd>、乙隊 <kbd>L</kbd>，或點畫面上的大按鈕）。搶到的隊伍說出答案，再點選右邊那道菜（或按 <kbd>1</kbd>–<kbd>6</kbd>）。</li>
+      <li>答錯的隊伍這一題不能再搶，線索繼續出現，換另一隊。兩隊都答錯，就公布答案。</li>
+      <li>公布答案後，全班一起念一次作法：「先……再……最後……就好了」。</li>
+    </ol>
+    <div class="row end"><button class="big-btn" id="btn-start" type="button">開始比賽 <kbd>Enter</kbd></button></div>
+  </div>
+</div>
+
+<!-- 結束 -->
+<div class="sheet" id="over" hidden>
+  <div class="panel" id="over-panel"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   〇、Google 試算表設定
+   ENDPOINT：貼上 Apps Script「網頁應用程式」網址（結尾是 /exec）。留空＝不上傳。
+   TOKEN：通行碼，必須和 Code-guess-dish.gs 裡的 TOKEN 一字不差；兩邊都留空則不檢查。
+   ============================================================ */
+var ENDPOINT = "https://script.google.com/macros/s/AKfycbwRSrKkUs9tJjrfSHMDAKl7vM4ws2ta6zaw3j1W8MlNvPKP9Ry1prNk25iO49pNdeqCUg/exec";
+var TOKEN = "";
+
+var DEFAULT_SCHOOL = "布理斯本亞洲語文學校";
+var DEFAULT_CLASS = "6B";
+var LESSON = "5A 第六課 成果發表會（猜猜這是什麼菜）";
+var LS = {sc:"guess-school", cl:"guess-class", ta:"guess-ta", tb:"guess-tb", q:"guess-queue", opt:"guess-opt"};
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v===null?d:v; }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+var $ = function(id){ return document.getElementById(id); };
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r; }
+var NUM = ["一","二","三","四","五"];
+
+/* ============================================================
+   一、黑板上的六道菜
+   前四道取自課本（短文、Part II、Part V）；牛排、牛肉麵用本課生詞「煎」「煮」「牛排」延伸。
+   clues：由模糊到明確排列，前面的線索會同時符合好幾道菜，越早搶答越冒險，分數也越高。
+   ============================================================ */
+var DISHES = [
+  { name:"蛋糕", icon:"🎂", mat:"麵粉、奶油、糖、蛋",
+    how:"先把麵粉、奶油、糖跟蛋都拌好，再放進烤箱烤二十分鐘。",
+    full:"先把麵粉、奶油、糖跟蛋都拌好，再放進烤箱，只要烤二十分鐘就好了。",
+    clues:["這是甜的。","這道菜的材料有蛋。","我要先把材料都拌好。","這道菜的材料有麵粉和奶油。","我要用烤箱，只要烤二十分鐘就好了。"] },
+  { name:"蛋炒飯", icon:"🍳", mat:"蛋、飯、鹽",
+    how:"先把蛋炒好，再放飯和鹽，大概炒五分鐘。",
+    full:"先把蛋炒好，再放飯和鹽，大概炒五分鐘就好了。",
+    clues:["這道菜的材料不多。","這道菜的材料有蛋。","我要炒東西。","我要先把蛋炒好。","再放飯和鹽，大概炒五分鐘就好了。"] },
+  { name:"糖醋肉", icon:"🍖", mat:"醋、糖、鹽、水、豬肉、青菜",
+    how:"先把豬肉放進油裡炸十分鐘，再和拌好的醋、糖、鹽、水一起炒，最後放進青菜。",
+    full:"先把豬肉放進油裡炸十分鐘，再把醋、糖、鹽、水拌好和炸好的豬肉一起炒，最後放進青菜再炒三分鐘就好了。",
+    clues:["這是甜的。","這道菜的材料有豬肉。","我要炒東西。","這道菜的材料有醋和青菜。","我要炸東西：先把豬肉放進油裡炸十分鐘。"] },
+  { name:"滷肉飯", icon:"🍚", mat:"豬絞肉、油、大蒜末、油蔥酥、醬油、糖、米飯",
+    how:"先炒豬絞肉，再炒大蒜末和油蔥酥，把別的材料都放進鍋子裡煮四十分鐘，最後放在白米飯上。",
+    full:"先把豬絞肉炒好，再把大蒜末和油蔥酥放進鍋子裡炒三分鐘，把別的材料都放進鍋子裡煮四十分鐘，用電鍋把米飯煮好，最後把滷肉和滷肉汁放在白米飯上就好了。",
+    clues:["這道菜的材料很多。","我要炒東西。","這道菜的材料有醬油。","我要用電鍋把米飯煮好。","我要把豬絞肉和油蔥酥一起煮四十分鐘。"] },
+  { name:"牛排", icon:"🥩", mat:"牛肉、油、鹽",
+    how:"先把油放進鍋子裡，再把牛肉放進去煎五分鐘，最後放一點鹽。",
+    full:"先把油放進鍋子裡，再把牛肉放進去煎五分鐘，最後放一點鹽就好了。",
+    clues:["這不是甜的。","這道菜的材料只有三樣。","這道菜的材料有油和鹽。","爸爸為了慶祝媽媽的生日，給全家做了這道菜。","我要煎東西，這道菜的材料有牛肉。"] },
+  { name:"牛肉麵", icon:"🍜", mat:"牛肉、麵、水、醬油、青菜",
+    how:"先把牛肉放進水裡煮一個小時，再放醬油，最後放進麵和青菜再煮五分鐘。",
+    full:"先把牛肉放進水裡煮一個小時，再放醬油，最後放進麵和青菜再煮五分鐘就好了。",
+    clues:["這不是甜的。","我要煮東西。","這道菜要煮很久。","這道菜的材料有醬油和青菜。","這道菜的材料有牛肉和麵。"] }
+];
+var POINTS = [50,40,30,20,10];
+
+/* ============================================================
+   二、音效與語音
+   ============================================================ */
+var AC=null;
+function audio(){ if(!$("o-sfx").checked) return null;
+  try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); return AC; }catch(e){ return null; } }
+function beep(f1,f2,dur,type,vol,delay){ var ac=audio(); if(!ac) return; var t0=ac.currentTime+(delay||0);
+  var o=ac.createOscillator(), g=ac.createGain(); o.type=type||"square";
+  o.frequency.setValueAtTime(f1,t0); if(f2) o.frequency.linearRampToValueAtTime(f2,t0+dur);
+  g.gain.setValueAtTime(vol||.06,t0); g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0+dur+.02); }
+function sBuzz(team){ var f=team==="a"?520:700; beep(f,0,.12,"square",.07); beep(f,0,.12,"square",.07,.15); }
+function sRight(){ [523,659,784,1047].forEach(function(f,i){ beep(f,0,.18,"triangle",.08,i*.11); }); }
+function sWrong(){ beep(300,110,.4,"sawtooth",.07); }
+function sClue(){ beep(880,0,.08,"triangle",.05); }
+var VOICE=null;
+function pickVoice(){ try{ var vs=speechSynthesis.getVoices();
+  VOICE = vs.filter(function(v){ return /zh[-_]TW/i.test(v.lang); })[0] || vs.filter(function(v){ return /^zh/i.test(v.lang); })[0] || null; }catch(e){} }
+var ttsOK = "speechSynthesis" in window;
+if(ttsOK){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text){ if(!ttsOK) return;
+  try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang="zh-TW"; if(VOICE) u.voice=VOICE; u.rate=.82; speechSynthesis.speak(u); }catch(e){} }
+function hush(){ if(ttsOK) try{ speechSynthesis.cancel(); }catch(e){} }
+
+/* ============================================================
+   三、比賽狀態
+   ============================================================ */
+var M=null, R=null, autoTimer=0, autoT0=0;
+function teamName(t){ return t==="a"?M.ta:M.tb; }
+function listenMode(){ return $("o-listen").checked; }
+
+function startMatch(){
+  var ta=$("f-ta").value.trim()||"甲隊", tb=$("f-tb").value.trim()||"乙隊";
+  if(ta===tb) tb=tb+"（二）";
+  lsSet(LS.sc,$("f-school").value.trim()); lsSet(LS.cl,$("f-class").value.trim()); lsSet(LS.ta,ta); lsSet(LS.tb,tb);
+  saveOpts(); audio();
+  var n=Number($("f-rounds").value), order=[];
+  while(order.length<n){ var pass=shuffle(DISHES.map(function(d,i){ return i; }));
+    if(order.length && pass[0]===order[order.length-1]){ pass.push(pass.shift()); } order=order.concat(pass); }
+  M={ ta:ta, tb:tb, school:$("f-school").value.trim(), cls:$("f-class").value.trim(),
+      score:{a:0,b:0}, right:{a:0,b:0}, order:order.slice(0,n), ri:-1, log:[],
+      auto:Number($("f-auto").value), pen:Number($("f-pen").value), t0:Date.now(), over:false,
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,8) };
+  $("setup").hidden=true; $("over").hidden=true; setSync("");
+  $("btn-end").disabled=false;
+  nextRound();
+}
+
+function nextRound(){
+  M.ri++;
+  if(M.ri>=M.order.length){ finish("完成全部題目"); return; }
+  R={ dish:M.order[M.ri], n:0, phase:"clue", buzz:null, locked:{a:false,b:false}, wrong:[], solved:null, events:[] };
+  showClue();
+}
+
+function showClue(){
+  if(R.n>=5) return;
+  R.n++; R.phase="clue"; sClue();
+  var c=DISHES[R.dish].clues[R.n-1];
+  if($("o-tts").checked || listenMode()) speak(c);
+  restartAuto(); render(true);
+}
+
+/* 自動出線索 */
+function restartAuto(){ clearInterval(autoTimer); autoT0=Date.now();
+  if(!M || !M.auto) return;
+  autoTimer=setInterval(function(){
+    if(!R || R.phase!=="clue"){ return; }
+    var el=(Date.now()-autoT0)/1000, bar=document.querySelector(".timer i");
+    if(bar) bar.style.width=Math.min(100, el/M.auto*100)+"%";
+    if(el>=M.auto){ if(R.n<5) showClue(); else { clearInterval(autoTimer); if(bar) bar.style.width="100%"; } }
+  },100);
+}
+
+function buzz(t){
+  if(!R || R.phase!=="clue" || R.locked[t] || R.n<1) return;
+  R.phase="buzz"; R.buzz=t; hush(); sBuzz(t); clearInterval(autoTimer);
+  render(false);
+}
+function cancelBuzz(){
+  if(!R || R.phase!=="buzz") return;
+  R.phase="clue"; R.buzz=null; autoT0=Date.now(); restartAuto(); render(false);
+}
+function choose(k){
+  if(!R || R.phase!=="buzz" || k<0 || k>=DISHES.length || R.wrong.indexOf(k)>=0) return;
+  var t=R.buzz, d=DISHES[R.dish];
+  if(k===R.dish){
+    var pts=POINTS[R.n-1];
+    M.score[t]+=pts; M.right[t]++; R.solved={team:t, pts:pts, clue:R.n};
+    R.events.push(teamName(t)+"第"+R.n+"條猜中＋"+pts);
+    R.phase="reveal"; sRight(); clearInterval(autoTimer);
+    speak("答對了！這是"+d.name+"。"+d.full);
+    render(false);
+  } else {
+    R.wrong.push(k); R.locked[t]=true;
+    M.score[t]=Math.max(0, M.score[t]-M.pen);
+    R.events.push(teamName(t)+"猜「"+DISHES[k].name+"」答錯"+(M.pen?"－"+M.pen:""));
+    sWrong(); R.buzz=null;
+    if(R.locked.a && R.locked.b){ R.phase="wait"; setTimeout(function(){ reveal(); }, 900); }
+    else { R.phase="clue"; autoT0=Date.now(); restartAuto(); }
+    render(false);
+    var card=document.querySelector(".dish-card[data-k='"+k+"']"); if(card) card.classList.add("shake");
+  }
+}
+function reveal(){
+  if(!R || R.phase==="reveal") return;
+  var d=DISHES[R.dish];
+  R.phase="reveal"; R.buzz=null; clearInterval(autoTimer);
+  if(!R.solved) R.events.push("沒有隊伍猜中");
+  speak("答案是"+d.name+"。"+d.full);
+  render(false);
+}
+function afterReveal(){
+  var d=DISHES[R.dish];
+  M.log.push({ no:M.ri+1, dish:d.name, text:R.events.join("；"), solved:R.solved }); R.logged=true;
+  nextRound();
+}
+
+/* ============================================================
+   四、畫面
+   ============================================================ */
+function render(fresh){
+  var d=DISHES[R.dish];
+  // 上排
+  ["a","b"].forEach(function(t){
+    $("sc-"+t).textContent=M.score[t];
+    $("nm-"+t).innerHTML=esc(teamName(t))+"<small>答對 "+M.right[t]+" 題</small>";
+    $("team-"+t).classList.toggle("locked", !!R.locked[t] && R.phase!=="reveal");
+    $("team-"+t).classList.toggle("on", R.buzz===t);
+  });
+  $("rd").textContent="第 "+(M.ri+1)+"／"+M.order.length+" 題";
+  $("pts").innerHTML = R.phase==="reveal" ? "按 <kbd>Enter</kbd> 下一題" : "現在猜中 <b>+"+POINTS[R.n-1]+"</b> 分";
+
+  // 黑板
+  var html="";
+  if(R.phase==="reveal"){
+    var who = R.solved ? "<div class='who' style='color:"+(R.solved.team==="a"?"#ffb3a6":"#a9cdf5")+"'>"+esc(teamName(R.solved.team))+"在第 "+R.solved.clue+" 條線索猜中，得 "+R.solved.pts+" 分！</div>"
+                       : "<div class='who'>這一題兩隊都沒有猜中。</div>";
+    html="<h2>答案是……</h2><div class='reveal'><div class='dish appear'><span aria-hidden='true'>"+d.icon+"</span>"+esc(d.name)+"</div>"+who+
+      "<div class='how'>"+boldConn(esc(d.full))+"</div>"+
+      "<p class='used'>這一題用到的線索："+d.clues.slice(0,R.n).map(esc).join("　")+"</p>"+
+      "<button class='chalkbtn' type='button' id='say-how'>全班一起念作法</button></div>";
+  } else {
+    if(R.phase==="buzz") html+="<div class='banner "+R.buzz+"'>"+esc(teamName(R.buzz))+"搶答！請說出答案，再點選那道菜 <small>（按 1–6，或 Esc 取消）</small></div>";
+    else html+="<h2>猜猜這是什麼菜？</h2>";
+    html+="<ol class='clues'>"+d.clues.map(function(c,i){
+      if(i>=R.n) return "<li class='wait'><span class='no'>"+(i+1)+"</span><span class='tx'>……</span></li>";
+      var isNew=i===R.n-1, txt = listenMode()
+        ? "第"+NUM[i]+"條線索 <button type='button' data-say='"+i+"'>再念一次</button>"
+        : esc(c);
+      return "<li class='"+(isNew?"new":"")+(isNew&&fresh?" appear":"")+"'><span class='no'>"+(i+1)+"</span><span class='tx'>"+txt+"</span></li>";
+    }).join("")+"</ol>";
+    if(M.auto && R.phase==="clue" && R.n<5) html+="<div class='timer' aria-hidden='true'><i></i></div>";
+  }
+  $("board").innerHTML=html;
+
+  // 食譜牆
+  var pickMode = R.phase==="buzz";
+  $("menu").className="menu"+(pickMode?" pick "+R.buzz:"");
+  $("menu").innerHTML=DISHES.map(function(x,k){
+    var cls="dish-card"; if(R.wrong.indexOf(k)>=0) cls+=" wrong"; if(R.phase==="reveal" && k===R.dish) cls+=" right";
+    return "<button type='button' class='"+cls+"' data-k='"+k+"'"+(pickMode && R.wrong.indexOf(k)<0?"":" disabled")+">"+
+      "<span class='hd'><span aria-hidden='true'>"+x.icon+"</span>"+esc(x.name)+"<span class='k'>"+(k+1)+"</span></span>"+
+      "<span class='mat'><b>材料</b>"+esc(x.mat)+"</span>"+
+      ($("o-how").checked?"<span class='how'><b>作法</b>"+esc(x.how)+"</span>":"")+"</button>";
+  }).join("");
+
+  // 按鈕
+  $("buzz-a").disabled = !(R.phase==="clue" && !R.locked.a);
+  $("buzz-b").disabled = !(R.phase==="clue" && !R.locked.b);
+  $("buzz-a").innerHTML=esc(M.ta)+"搶答 <kbd>A</kbd>"; $("buzz-b").innerHTML=esc(M.tb)+"搶答 <kbd>L</kbd>";
+  var nc=$("btn-next-clue");
+  if(R.phase==="reveal"){ nc.disabled=false; nc.innerHTML=(M.ri+1>=M.order.length?"看比賽結果":"下一題")+" <kbd>Enter</kbd>"; nc.dataset.mode="next"; }
+  else { nc.disabled = !(R.phase==="clue" && R.n<5); nc.innerHTML="下一條線索 <kbd>空白</kbd>"; nc.dataset.mode="clue"; }
+  $("btn-cancel").hidden = R.phase!=="buzz";
+  $("btn-reveal").disabled = !(R.phase==="clue" || R.phase==="buzz");
+  $("btn-say").disabled = false;
+}
+function boldConn(s){ return s.replace(/(先|再|最後|就好了)/g,"<b>$1</b>"); }
+
+function showIdle(){
+  $("board").innerHTML="<h2>猜猜這是什麼菜？</h2><ol class='clues'><li class='new'><span class='tx'>老師準備好了，就按「開始比賽」。</span></li></ol>";
+  $("menu").className="menu";
+  $("menu").innerHTML=DISHES.map(function(x,k){
+    return "<button type='button' class='dish-card' data-k='"+k+"' disabled><span class='hd'><span aria-hidden='true'>"+x.icon+"</span>"+esc(x.name)+"<span class='k'>"+(k+1)+"</span></span>"+
+      "<span class='mat'><b>材料</b>"+esc(x.mat)+"</span>"+($("o-how").checked?"<span class='how'><b>作法</b>"+esc(x.how)+"</span>":"")+"</button>";
+  }).join("");
+}
+
+/* ============================================================
+   五、結束
+   ============================================================ */
+function finish(reason){
+  if(!M || M.over) return;
+  if(R && R.phase==="reveal" && !R.logged){ M.log.push({no:M.ri+1, dish:DISHES[R.dish].name, text:R.events.join("；"), solved:R.solved}); }
+  M.over=true; clearInterval(autoTimer); hush();
+  var secs=Math.round((Date.now()-M.t0)/1000), a=M.score.a, b=M.score.b;
+  var winner = a===b ? "平手" : (a>b?M.ta:M.tb);
+  if(a!==b) sRight();
+  $("btn-end").disabled=true;
+  $("over-panel").innerHTML=
+    "<h1>比賽結束</h1>"+
+    "<div class='result'><div class='a'><span>"+esc(M.ta)+"<small>答對 "+M.right.a+" 題</small></span><b>"+a+"</b></div>"+
+    "<div class='b'><span>"+esc(M.tb)+"<small>答對 "+M.right.b+" 題</small></span><b>"+b+"</b></div></div>"+
+    "<p class='win'>"+(a===b?"兩隊平手，大家都是小廚師！":"🏆 "+esc(winner)+"獲勝！")+"</p>"+
+    "<div class='scroll'><table><tr><th>題</th><th>答案</th><th>經過</th></tr>"+
+    M.log.map(function(l){ return "<tr><td>"+l.no+"</td><td class='k'>"+esc(l.dish)+"</td><td>"+esc(l.text)+"</td></tr>"; }).join("")+"</table></div>"+
+    "<p class='lead'>比賽時間 "+fmt(secs)+"。<span class='sync' id='sync2'></span></p>"+
+    "<div class='row end'><button class='soft-btn' type='button' id='btn-setup'>回到設定</button><button class='big-btn' type='button' id='btn-again'>同樣兩隊再比一次</button></div>";
+  $("over").hidden=false;
+  upload({
+    id:M.id, school:M.school, cls:M.cls, ip:IP,
+    teamA:M.ta, scoreA:a, rightA:M.right.a, teamB:M.tb, scoreB:b, rightB:M.right.b,
+    winner:winner, rounds:M.log.length+"／"+M.order.length, seconds:secs,
+    detail:M.log.map(function(l){ return l.no+". "+l.dish+"："+l.text; }).join("｜").slice(0,1800),
+    settings:(M.auto?"每"+M.auto+"秒自動":"老師控制")+"、"+(M.pen?"答錯扣"+M.pen:"答錯不扣")+(listenMode()?"、聽力模式":""),
+    reason:reason, lesson:LESSON, ua:navigator.userAgent.slice(0,160)
+  });
+}
+
+/* ============================================================
+   六、操作
+   ============================================================ */
+$("btn-start").addEventListener("click", startMatch);
+$("buzz-a").addEventListener("click", function(){ buzz("a"); });
+$("buzz-b").addEventListener("click", function(){ buzz("b"); });
+$("btn-next-clue").addEventListener("click", function(){
+  if(!R) return;
+  if(this.dataset.mode==="next" && R.phase==="reveal") afterReveal(); else if(R.phase==="clue") showClue();
+});
+$("btn-cancel").addEventListener("click", cancelBuzz);
+$("btn-reveal").addEventListener("click", reveal);
+$("btn-say").addEventListener("click", function(){
+  if(!R) return; var d=DISHES[R.dish];
+  if(R.phase==="reveal") speak(d.full); else if(R.n>0) speak(d.clues[R.n-1]);
+});
+$("btn-end").addEventListener("click", function(){ if(M && !M.over && confirm("確定要結束這場比賽嗎？")) finish("老師提前結束"); });
+$("btn-full").addEventListener("click", function(){
+  try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }catch(e){}
+});
+$("menu").addEventListener("click", function(e){ var b=e.target.closest(".dish-card"); if(b && !b.disabled) choose(Number(b.dataset.k)); });
+$("board").addEventListener("click", function(e){
+  var b=e.target.closest("button"); if(!b || !R) return;
+  if(b.id==="say-how") speak(DISHES[R.dish].full);
+  else if(b.dataset.say!=null) speak(DISHES[R.dish].clues[Number(b.dataset.say)]);
+});
+$("over").addEventListener("click", function(e){
+  var b=e.target.closest("button"); if(!b) return;
+  if(b.id==="btn-again"){ $("f-ta").value=M.ta; $("f-tb").value=M.tb; startMatch(); }
+  else if(b.id==="btn-setup"){ $("over").hidden=true; $("setup").hidden=false; }
+});
+document.addEventListener("keydown", function(e){
+  var tg=e.target; if(tg && /INPUT|SELECT|TEXTAREA/.test(tg.tagName)) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  var k=e.key;
+  if(!$("setup").hidden){ if(k==="Enter"){ e.preventDefault(); startMatch(); } return; }
+  if(!$("over").hidden){ if(k==="Enter"){ e.preventDefault(); $("btn-again").click(); } return; }
+  if(!R) return;
+  if(k==="a"||k==="A"){ e.preventDefault(); buzz("a"); }
+  else if(k==="l"||k==="L"){ e.preventDefault(); buzz("b"); }
+  else if(k===" "){ e.preventDefault(); if(R.phase==="clue") showClue(); }
+  else if(k==="Enter"){ e.preventDefault(); if(R.phase==="reveal") afterReveal(); }
+  else if(k==="Escape"){ cancelBuzz(); }
+  else if(k==="r"||k==="R"){ reveal(); }
+  else if(/^[1-6]$/.test(k)){ choose(Number(k)-1); }
+});
+function saveOpts(){ var o={}; ["o-tts","o-listen","o-how","o-sfx"].forEach(function(id){ o[id]=$(id).checked; });
+  o.auto=$("f-auto").value; o.pen=$("f-pen").value; o.rounds=$("f-rounds").value; lsSet(LS.opt, JSON.stringify(o)); }
+$("o-how").addEventListener("change", function(){ if(R && M && !M.over) render(false); else showIdle(); });
+
+/* ============================================================
+   七、成績上傳（Google 試算表）
+   ============================================================ */
+var IP="";
+(function(){
+  try{
+    var ctl = window.AbortController ? new AbortController() : null;
+    if(ctl) setTimeout(function(){ ctl.abort(); }, 3500);
+    fetch("https://api.ipify.org?format=json", ctl?{signal:ctl.signal}:{}).then(function(r){ return r.json(); })
+      .then(function(o){ IP=(o&&o.ip)||""; }).catch(function(){});
+  }catch(e){}
+})();
+function endpoint(){ return (ENDPOINT||"").trim(); }
+function token(){ return (TOKEN||"").trim(); }
+function setSync(msg, cls){
+  [$("sync"), $("sync2")].forEach(function(el){ if(!el) return; el.textContent=msg||""; el.className="sync"+(cls?" "+cls:""); });
+}
+function queueGet(){ try{ return JSON.parse(lsGet(LS.q,"[]"))||[]; }catch(e){ return []; } }
+function queueSet(a){ lsSet(LS.q, JSON.stringify(a.slice(-40))); }
+function send(rec){
+  var url=endpoint(); if(!url) return Promise.reject(new Error("no-endpoint"));
+  var payload={}; for(var k in rec) if(Object.prototype.hasOwnProperty.call(rec,k)) payload[k]=rec[k];
+  if(!payload.ip) payload.ip=IP;
+  payload.token=token();
+  var body=JSON.stringify(payload);
+  return fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+    .then(function(r){ return r.json(); })
+    .then(function(o){ if(o&&o.ok) return o; var m=(o&&o.error)?o.error:"server"; var err=new Error(m); err.fatal=/token/.test(m); throw err; })
+    .catch(function(err){
+      if(err&&err.fatal) throw err;
+      return fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+        .then(function(){ return {ok:true, blind:true}; });
+    });
+}
+function upload(rec){
+  if(!endpoint()){ setSync("尚未設定試算表網址，比賽結果只顯示在畫面上。"); return; }
+  setSync("比賽結果上傳中…","busy");
+  send(rec).then(function(o){
+    setSync(o.blind?"比賽結果已送出（請開試算表確認）。":"比賽結果已寫入 Google 試算表。","ok");
+  }, function(err){
+    if(err&&err.fatal){ setSync("沒有寫入（通行碼不符）。","bad"); return; }
+    var q=queueGet(); q.push(rec); queueSet(q);
+    setSync("上傳失敗，已暫存在本機（共 "+q.length+" 筆），下次開啟會自動補傳。","bad");
+  });
+}
+function flushQueue(){
+  var q=queueGet(); if(!q.length || !endpoint()) return;
+  var left=[], i=0;
+  (function next(){
+    if(i>=q.length){ queueSet(left); if(!left.length) setSync("先前暫存的比賽結果已補傳完成。","ok"); return; }
+    var rec=q[i++]; send(rec).then(next, function(){ left.push(rec); next(); });
+  })();
+}
+
+/* ============================================================
+   八、啟動
+   ============================================================ */
+$("f-school").value=lsGet(LS.sc,DEFAULT_SCHOOL)||DEFAULT_SCHOOL;
+$("f-class").value=lsGet(LS.cl,DEFAULT_CLASS)||DEFAULT_CLASS;
+$("f-ta").value=lsGet(LS.ta,"甲隊")||"甲隊";
+$("f-tb").value=lsGet(LS.tb,"乙隊")||"乙隊";
+try{ var op=JSON.parse(lsGet(LS.opt,"{}"));
+  ["o-tts","o-listen","o-how","o-sfx"].forEach(function(id){ if(id in op) $(id).checked=!!op[id]; });
+  if(op.auto) $("f-auto").value=op.auto; if(op.pen) $("f-pen").value=op.pen; if(op.rounds) $("f-rounds").value=op.rounds;
+}catch(e){}
+showIdle();
+setTimeout(flushQueue, 1500);
+})();
+</script>
+</body>
+</html>

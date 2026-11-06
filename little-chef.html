@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>我是小廚師｜做菜順序遊戲</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+/* Layout: 單欄 — 學生資料列、砧板（進度列＋遊戲面板）、操作提示、成績與課文參考區 */
+:root{
+  --tile:#d4ece3; --tile-line:rgba(255,255,255,.75);
+  --wood:#eab27c; --wood-d:#c4844c; --wood-l:#f6cfa3;
+  --paper:#fffaf3; --ink:#2b211c; --muted:#6f5d50; --line:#e4cfb8;
+  --yolk:#ffc234; --yolk-l:#fff0c4; --basil:#2e8b57; --basil-l:#e3f4e9;
+  --tomato:#d9452f; --tomato-l:#fde7e2; --sky:#2b7fc1;
+  --kai:"LXGW WenKai TC","BiauKai","DFKai-SB","KaiTi","STKaiti",serif;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background-color:var(--tile);
+  background-image:linear-gradient(var(--tile-line) 2px,transparent 2px),linear-gradient(90deg,var(--tile-line) 2px,transparent 2px);
+  background-size:46px 46px;color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:max(14px,env(safe-area-inset-top,0px));padding-bottom:max(28px,env(safe-area-inset-bottom,0px))}
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:6px 16px;flex-wrap:wrap}
+header h1{margin:0;font-family:var(--kai);font-weight:700;font-size:2.1rem;line-height:1.2;letter-spacing:.04em}
+header h1 span{display:inline-block;background:var(--yolk);padding:0 .25em;border-radius:6px;margin-left:.1em}
+header p{margin:0;color:var(--muted);font-size:.9rem}
+
+.who{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.fields{display:grid;grid-template-columns:2fr 1fr 1.4fr auto;gap:8px;align-items:end}
+.fields label{display:flex;flex-direction:column;font-size:.78rem;color:var(--muted);gap:3px;min-width:0}
+.fields input{font:inherit;font-size:1rem;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%;min-width:0}
+.fields input:focus{outline:2px solid var(--sky);outline-offset:1px}
+.opts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.86rem;color:var(--muted)}
+.opts label{display:flex;align-items:center;gap:5px;cursor:pointer}
+@media (max-width:560px){.fields{grid-template-columns:1fr 1fr}.fields label.school{grid-column:1/-1}.fields .start{grid-column:1/-1}}
+
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 14px}
+button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+button:disabled{cursor:default}
+button.primary,button.act{background:var(--basil);border-color:var(--basil);color:#fff;font-weight:700}
+button.primary:hover,button.act:hover:not(:disabled){filter:brightness(1.08)}
+button.act{align-self:center;font-size:1.05rem;padding:9px 22px}
+button.act:disabled{background:#c9d6cd;border-color:#c9d6cd}
+button.ghost{background:transparent}
+button.small{font-size:.82rem;padding:3px 10px}
+
+/* 砧板 */
+.board{position:relative;border-radius:30px 30px 24px 24px;padding:34px 12px 14px;
+  background-color:var(--wood);
+  background-image:repeating-linear-gradient(97deg,rgba(255,255,255,.07) 0 3px,transparent 3px 22px),
+    repeating-linear-gradient(93deg,rgba(120,60,20,.06) 0 1px,transparent 1px 13px);
+  border-bottom:9px solid var(--wood-d);box-shadow:0 12px 26px rgba(70,45,20,.2)}
+.board::before{content:"";position:absolute;top:11px;left:50%;width:34px;height:13px;margin-left:-17px;border-radius:999px;
+  background:var(--tile);box-shadow:inset 0 2px 4px rgba(0,0,0,.28)}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:0 2px 10px}
+.plates{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:1 1 340px}
+.plate{display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,250,243,.55);border:2px solid transparent;border-radius:12px;
+  padding:3px 2px 1px;font-family:var(--kai);font-size:.98rem;line-height:1.3;white-space:nowrap;min-width:0}
+.plate .ic{font-size:1.05rem}
+.plate.now{background:var(--paper);border-color:var(--ink)}
+.plate.done{background:var(--paper)}
+.plate .st{color:#c98a00;font-size:.7rem;line-height:1.1;min-height:1.1em;letter-spacing:.05em}
+.meter{display:flex;gap:8px;margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;font-size:.95rem}
+.meter span{background:rgba(255,250,243,.7);border-radius:8px;padding:1px 9px}
+
+.panel{background:var(--paper);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:400px;
+  box-shadow:0 2px 0 rgba(120,70,30,.15)}
+.phases{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-size:.8rem;color:var(--muted)}
+.phases .ph{display:flex;align-items:center;justify-content:center;gap:4px;padding:2px 4px;border-radius:999px;white-space:nowrap;background:#f6efe6}
+.phases .ph i{font-style:normal;display:inline-grid;place-items:center;width:1.45em;height:1.45em;border-radius:50%;
+  background:var(--line);color:var(--ink);font-weight:700;font-size:.8rem}
+.phases .ph.on{background:var(--yolk-l);color:var(--ink);font-weight:700}
+.phases .ph.on i{background:var(--yolk)}
+.phases .ph.ok i{background:var(--basil);color:#fff}
+.panel h2{margin:0;font-family:var(--kai);font-size:1.6rem;line-height:1.35;text-wrap:balance}
+.panel h3{margin:0;font-family:var(--kai);font-size:1.35rem;line-height:1.5;text-wrap:balance}
+.panel p{margin:0}
+.sub{color:var(--muted);font-size:.95rem}
+.k{font-family:var(--sans);font-size:.66rem;color:var(--muted);position:absolute;top:3px;left:6px;font-weight:400}
+@media (pointer:coarse){.k{display:none}}
+
+/* 材料 */
+.basket{min-height:3.3rem;border:2px dashed var(--wood-d);border-radius:14px;padding:7px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#fff6ea}
+.basket .empty{color:var(--muted);font-size:.9rem;padding-left:4px}
+.inb{font-family:var(--kai);font-size:1.15rem;background:var(--basil-l);border:1.5px solid var(--basil);border-radius:999px;padding:1px 11px}
+.pantry{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pantry.wide{grid-template-columns:repeat(4,1fr)}
+@media (max-width:520px){.pantry.wide{grid-template-columns:repeat(3,1fr)}}
+.ing{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 4px 7px;border:2px solid var(--line);border-radius:14px;background:#fff;line-height:1.25}
+.ing .em{font-size:1.65rem;line-height:1.2}
+.ing .w{font-family:var(--kai);font-size:1.4rem}
+.ing .zy{font-size:.68rem;color:var(--muted);letter-spacing:.06em;min-height:1em}
+.ing:hover:not(:disabled){border-color:var(--wood-d)}
+.ing.good{border-color:var(--basil);background:var(--basil-l);opacity:.55}
+.ing.bad{border-color:var(--tomato);background:var(--tomato-l)}
+.ing.bad .w{text-decoration:line-through;text-decoration-color:var(--tomato)}
+
+/* 步驟排序 */
+ol.slots{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+ol.slots li{display:flex;gap:8px;align-items:stretch}
+.num{flex:none;width:2rem;display:grid;place-items:center;font-weight:900;font-size:1rem;color:var(--wood-d);
+  border-radius:10px;background:#fff1df}
+.slot{flex:1;text-align:left;min-height:2.9rem;font-family:var(--kai);font-size:1.25rem;line-height:1.4;padding:6px 12px;
+  border:2px dashed var(--line);background:#fffdf9;border-radius:11px}
+.slot.empty{color:#b9a796;font-family:var(--sans);font-size:.85rem}
+.slot.filled{border-style:solid;border-color:var(--wood-d);background:#fff3e3}
+.slot.lock{border-style:solid;border-color:var(--basil);background:var(--basil-l)}
+.tray{display:flex;flex-wrap:wrap;gap:8px;min-height:2.9rem;padding:8px;border-radius:12px;background:#f7eadb}
+.tray .none{color:var(--muted);font-size:.88rem;align-self:center;padding-left:4px}
+.card-step,.tok{position:relative;font-family:var(--kai);font-size:1.22rem;line-height:1.4;padding:7px 14px 7px 18px;
+  border:2px solid var(--wood-d);border-radius:10px;background:#fff}
+.card-step:hover,.tok:hover{background:#fff3e3}
+.tok{padding:5px 14px 5px 16px;font-size:1.35rem}
+.answer{min-height:3.3rem;border:2px dashed var(--line);border-radius:12px;padding:7px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#fffdf9}
+.answer .tok{border-color:var(--sky);padding:5px 12px}
+.answer.ok{border-style:solid;border-color:var(--basil);background:var(--basil-l)}
+.answer.ok .tok{border-color:var(--basil)}
+.answer .empty{color:#b9a796;font-size:.85rem;padding-left:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.center{justify-content:center}
+
+/* 說作法 */
+.tpl{font-family:var(--kai);font-size:1.38rem;line-height:2.15;margin:0;background:#fffdf9;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.blank{display:inline-block;min-width:2.4em;text-align:center;border-bottom:3px solid var(--line);margin:0 3px;padding:0 5px;line-height:1.45}
+.blank.on{border-color:var(--yolk);background:var(--yolk-l);border-radius:6px 6px 0 0}
+.blank.fill{color:var(--basil);border-color:var(--basil);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{position:relative;display:flex;flex-direction:column;align-items:center;min-width:4.6rem;padding:6px 12px 5px;border:2px solid var(--wood-d);border-radius:12px;background:#fff;line-height:1.25}
+.chip .w{font-family:var(--kai);font-size:1.45rem}
+.chip .zy{font-size:.66rem;color:var(--muted);letter-spacing:.05em;min-height:1em}
+.chip:hover:not(:disabled){background:#fff3e3}
+
+.saybox{background:var(--yolk-l);border:2px solid var(--yolk);border-radius:14px;padding:10px 14px;font-family:var(--kai);font-size:1.25rem;line-height:1.8}
+.saybox button{font-family:var(--sans);margin-left:6px;vertical-align:middle}
+.hint{font-size:.88rem;color:var(--muted);margin:0}
+.ok-line{color:var(--basil);font-weight:700}
+
+/* 上菜／小問題／成績 */
+.served{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.served .big{font-size:4.2rem;line-height:1.1}
+.stars{font-size:1.9rem;letter-spacing:.12em;color:#e0a400}
+.stars .off{color:#e8dccb}
+.choices{display:flex;flex-direction:column;gap:8px}
+.choice{position:relative;text-align:left;font-family:var(--kai);font-size:1.22rem;line-height:1.5;padding:9px 12px 9px 22px;border:2px solid var(--line);border-radius:11px;background:#fff}
+.choice:hover:not(:disabled){border-color:var(--wood-d)}
+.choice.good{border-color:var(--basil);background:var(--basil-l)}
+.choice.bad{border-color:var(--tomato);background:var(--tomato-l)}
+.dlg{background:#fff6ea;border:2px solid var(--line);border-radius:14px;padding:8px 14px;font-family:var(--kai);font-size:1.22rem;line-height:1.8}
+.dlg p{margin:0}.dlg b{color:var(--wood-d)}.dlg .gap{color:#b9a796;font-size:1rem}
+.objs{display:flex;flex-direction:column;gap:6px}
+.obj{display:grid;grid-template-columns:6.5em 1fr 3em;gap:10px;align-items:center;font-size:.92rem}
+.obj .bar{height:10px;background:#f1e4d4;border-radius:99px;overflow:hidden}
+.obj .bar i{display:block;height:100%;background:var(--basil);border-radius:99px}
+.obj b{text-align:right;font-variant-numeric:tabular-nums}
+.why{background:#f4f8f5;border-left:4px solid var(--basil);padding:8px 12px;border-radius:6px;font-size:.95rem}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat div{background:#fff3e3;border-radius:12px;padding:8px;text-align:center}
+.stat b{display:block;font-size:1.4rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.75rem;color:var(--muted)}
+.dishrow{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.dishrow div{display:flex;justify-content:space-between;align-items:center;gap:6px;white-space:nowrap;font-family:var(--kai);font-size:1.1rem;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px 10px}
+.dishrow small{color:#c98a00;font-family:var(--sans);font-size:.78rem}
+.wronglist{margin:0;padding-left:1.2em;font-size:.92rem;color:var(--muted)}
+.intro-plates{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:4px 0}
+.intro-plates div{display:flex;flex-direction:column;align-items:center;font-family:var(--kai);font-size:1.1rem}
+.intro-plates b{font-size:2.4rem;line-height:1.2;font-weight:400}
+
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pop{animation:pop .45s ease-out}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.shake,.pop{animation:none}}
+
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:50;transform:translateX(-50%);background:rgba(43,33,28,.9);color:#fff;font-weight:700;
+  padding:6px 16px;border-radius:999px;font-size:.95rem;pointer-events:none;max-width:90%;text-align:center}
+#toast[hidden]{display:none!important}
+
+.under{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;font-size:.86rem;color:var(--muted)}
+kbd{font-family:var(--sans);font-size:.78rem;background:#fff;border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:0 6px;color:var(--ink)}
+@media (pointer:coarse){.keys{display:none}}
+.sync{font-size:.88rem;color:var(--muted);min-height:1.4em;margin:0}
+.sync.ok{color:var(--basil)}.sync.bad{color:var(--tomato)}.sync.busy{color:var(--sky)}
+
+details.box{background:var(--paper);border:1px solid var(--line);border-radius:12px}
+details.box summary{cursor:pointer;padding:10px 14px;font-weight:700}
+details.box .body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}
+td.w{font-family:var(--kai);font-size:1.2rem}
+td.n,td.sc,th.sc{font-variant-numeric:tabular-nums;text-align:right}
+.text p{margin:0;font-family:var(--kai);font-size:1.18rem;line-height:1.8}
+.text .sp{color:var(--wood-d);font-weight:700}
+.text h4{margin:6px 0 0;font-size:.9rem;color:var(--muted)}
+.hzs{display:flex;flex-wrap:wrap;gap:8px}
+.hz{display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-family:var(--kai);font-size:1.6rem;line-height:1.2;background:#fff}
+.hz small{font-family:var(--sans);font-size:.7rem;color:var(--muted)}
+ol.pat{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+ol.pat b{font-family:var(--kai);font-size:1.15rem}
+ol.pat span{display:block;font-family:var(--kai);font-size:1.05rem;color:var(--muted)}
+footer{font-size:.78rem;color:var(--muted);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>我是<span>小廚師</span></h1>
+    <p>學華語向前走　第五冊　第六課　成果發表會（複習一）</p>
+  </header>
+
+  <section class="who" aria-label="學生資料">
+    <div class="fields">
+      <label class="school" for="f-school">學校<input id="f-school" autocomplete="organization"></label>
+      <label for="f-class">班級<input id="f-class"></label>
+      <label for="f-name">姓名<input id="f-name" autocomplete="name" placeholder="請輸入姓名"></label>
+      <button class="primary start" id="btn-start" type="button">開始遊戲</button>
+    </div>
+    <div class="opts">
+      <label for="o-zy"><input type="checkbox" id="o-zy" checked> 材料和詞語顯示注音</label>
+      <label for="o-tts"><input type="checkbox" id="o-tts" checked> 自動朗讀</label>
+      <label for="o-sfx"><input type="checkbox" id="o-sfx" checked> 音效</label>
+    </div>
+  </section>
+
+  <div class="board" id="board">
+    <div class="hud" id="hud"></div>
+    <div id="stage" aria-live="polite"></div>
+    <div id="toast" hidden></div>
+  </div>
+
+  <div class="under">
+    <span class="keys">可按 <kbd>1</kbd>–<kbd>9</kbd> 選擇，<kbd>Enter</kbd> 檢查或下一步</span>
+    <button class="ghost" id="btn-quit" type="button" hidden>結束並送出成績</button>
+  </div>
+  <p class="sync" id="sync"></p>
+
+  <details class="box" id="lb-box">
+    <summary>班級排行榜（讀取試算表）</summary>
+    <div class="body">
+      <p class="hint" id="lb-msg">展開後會從試算表讀取每個人的最高分。</p>
+      <div class="scroll"><table id="lb-table"></table></div>
+    </div>
+  </details>
+
+  <details class="box">
+    <summary>成績上傳</summary>
+    <div class="body">
+      <p class="hint">每次玩完會自動把成績寫進老師的 Google 試算表。沒有網路時成績會先存在這台裝置，連上網後按「補傳待上傳成績」。</p>
+      <div class="row"><button id="btn-test" type="button">測試連線</button><button id="btn-flush" type="button">補傳待上傳成績</button></div>
+    </div>
+  </details>
+
+  <details class="box">
+    <summary>課文與短文</summary>
+    <div class="body text" id="lesson-text"></div>
+  </details>
+  <details class="box">
+    <summary>補充生詞／短語（12）</summary>
+    <div class="body"><div class="scroll"><table id="vocab-table"></table></div></div>
+  </details>
+  <details class="box">
+    <summary>認讀漢字與句型</summary>
+    <div class="body">
+      <p class="hint">我會念</p><div class="hzs" id="read-chips"></div>
+      <p class="hint">句型</p>
+      <ol class="pat">
+        <li><b>先……再……最後……就好了</b>first… then… finally… and it’s done<span>先把豬肉放進油裡炸十分鐘，再把醋、糖、鹽、水拌好和炸好的豬肉一起炒，最後放進青菜再炒三分鐘就好了。</span></li>
+        <li><b>只要……就……</b>only need to… and then…<span>只要烤二十分鐘就好了。</span></li>
+        <li><b>雖然……但是……</b>although… but…<span>雖然很累，但是跳得很開心。</span></li>
+        <li><b>因為……再加上……所以……</b>because… plus… so…<span>因為我對跳舞有興趣，再加上我一直練習，所以可以跳得很好。</span></li>
+        <li><b>A 比 B ……多了</b>A is much more… than B<span>糖醋肉的材料比蛋炒飯多多了。</span></li>
+        <li><b>一邊……一邊……</b>while…<span>我們一邊吃蛋糕，一邊喝汽水。</span></li>
+        <li><b>為了……</b>in order to<span>為了慶祝媽媽的生日，爸爸給全家煎牛排。</span></li>
+        <li><b>除了……還……</b>besides… also…<span>爸爸除了給全家煎牛排，還煮了麵。</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <footer>
+    教材依據：僑務委員會《學華語向前走》第五冊（5A）第六課〈成果發表會（複習一）〉，課文、短文、食譜與補充生詞取自課本。<br>
+    本檔為單一 HTML 檔，可直接放進 GitHub Pages，或下載到電腦用瀏覽器開啟。
+    連網時會載入字型、查詢 IP 位址（api.ipify.org），並把成績送到老師的 Google 試算表；離線也能玩。
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   〇、Google 試算表設定
+   ENDPOINT：貼上 Apps Script「網頁應用程式」網址（結尾是 /exec）。留空＝不上傳。
+   TOKEN：通行碼，必須和 Code-little-chef.gs 裡的 TOKEN 一字不差；兩邊都留空則不檢查。
+   ============================================================ */
+var ENDPOINT = "https://script.google.com/macros/s/AKfycbxXgpgqFTb9v5_8vsSA3XkFPocwExdkRtb7lNbqYlBGXRDviuB7z8G0cHh828jSpVTj3w/exec";
+var TOKEN = "";
+
+var DEFAULT_SCHOOL = "布理斯本亞洲語文學校";
+var DEFAULT_CLASS = "6B";
+var LESSON = "5A 第六課 成果發表會（我是小廚師）";
+var LS = {sc:"chef-school", cl:"chef-class", nm:"chef-name", q:"chef-queue", opt:"chef-opt"};
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v===null?d:v; }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+var $ = function(id){ return document.getElementById(id); };
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function shuffledIdx(n){ var a=[],i; for(i=0;i<n;i++) a.push(i); if(n<2) return a;
+  do{ shuffle(a); }while(a.every(function(v,k){ return v===k; })); return a; }
+function now(){ return (window.performance&&performance.now)?performance.now():Date.now(); }
+function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r; }
+
+/* ============================================================
+   一、課本內容
+   ============================================================ */
+var TEXT = [
+  ["媽媽","發表會終於結束了，今天你跳得真好！累不累？"],
+  ["明真","我也覺得我跳得不錯。雖然很累，但是跳得很開心。"],
+  ["媽媽","你只學了三個月就跳得這麼好，真不容易。"],
+  ["明真","因為我對跳舞有興趣，再加上我一直練習，所以可以跳得很好。"],
+  ["媽媽","我跟你阿姨在小學的時候也學過舞蹈，從一年級就開始學了。"],
+  ["明真","你們跳得怎麼樣？可以教我嗎？"],
+  ["媽媽","我沒辦法教你，因為我很久沒跳了。我建議你問問阿姨吧！"],
+  ["明真","好，我試試看。"]
+];
+var DIARY = [
+  "今天是重要的日子，是媽媽的生日，姐姐跟我想做一個蛋糕送給媽媽，所以早上我們去超級市場買了一些做蛋糕的材料。",
+  "回家以後，我們就在廚房開始做了。蛋糕的作法不太難，先把麵粉、奶油、糖跟蛋都拌好，再放進烤箱，只要烤二十分鐘就好了。我們正在烤蛋糕的時候，聽到開門的聲音，是爸爸回來了，他買了一束花送給媽媽，媽媽開心得不得了。為了慶祝媽媽的生日，爸爸除了給全家煎牛排，還煮了麵。",
+  "吃了晚飯以後，我們一邊吃蛋糕，一邊喝汽水。媽媽說我們做的蛋糕比她做的好吃，今天晚上大家都很開心。"
+];
+var WORDS = [
+  {n:1, w:"成果發表會", z:"ㄔㄥˊ ㄍㄨㄛˇ ㄈㄚ ㄅㄧㄠˇ ㄏㄨㄟˋ", p:"chéng guǒ fā biǎo huì", e:"presentation of results"},
+  {n:2, w:"結束", z:"ㄐㄧㄝˊ ㄕㄨˋ", p:"jié shù", e:"finish"},
+  {n:3, w:"只", z:"ㄓˇ", p:"zhǐ", e:"only"},
+  {n:4, w:"小學", z:"ㄒㄧㄠˇ ㄒㄩㄝˊ", p:"xiǎo xué", e:"primary school"},
+  {n:5, w:"日記", z:"ㄖˋ ㄐㄧˋ", p:"rì jì", e:"diary"},
+  {n:6, w:"拌", z:"ㄅㄢˋ", p:"bàn", e:"mix"},
+  {n:7, w:"烤箱", z:"ㄎㄠˇ ㄒㄧㄤ", p:"kǎo xiāng", e:"oven"},
+  {n:8, w:"束", z:"ㄕㄨˋ", p:"shù", e:"bouquet"},
+  {n:9, w:"為了", z:"ㄨㄟˋ ˙ㄌㄜ", p:"wèi le", e:"in order to, for the sake of"},
+  {n:10, w:"煎", z:"ㄐㄧㄢ", p:"jiān", e:"pan-fry"},
+  {n:11, w:"牛排", z:"ㄋㄧㄡˊ ㄆㄞˊ", p:"niú pái", e:"steak"},
+  {n:12, w:"煮", z:"ㄓㄨˇ", p:"zhǔ", e:"cook"}
+];
+var READ = [
+  ["果","ㄍㄨㄛˇ"],["發","ㄈㄚ"],["成","ㄔㄥˊ"],["表","ㄅㄧㄠˇ"],["束","ㄕㄨˋ"],
+  ["結","ㄐㄧㄝˊ"],["拌","ㄅㄢˋ"],["為","ㄨㄟˋ"],["煎","ㄐㄧㄢ"],["排","ㄆㄞˊ"],
+  ["牛","ㄋㄧㄡˊ"],["煮","ㄓㄨˇ"],["廚","ㄔㄨˊ"],["麵","ㄇㄧㄢˋ"],["烤","ㄎㄠˇ"],
+  ["聲","ㄕㄥ"],["箱","ㄒㄧㄤ"],["材","ㄘㄞˊ"],["議","ㄧˋ"],["建","ㄐㄧㄢˋ"]
+];
+
+/* 材料：注音與圖示 */
+var ING = {
+  "麵粉":{z:"ㄇㄧㄢˋ ㄈㄣˇ", i:"🌾"}, "奶油":{z:"ㄋㄞˇ ㄧㄡˊ", i:"🧈"}, "糖":{z:"ㄊㄤˊ", i:"🍬"},
+  "蛋":{z:"ㄉㄢˋ", i:"🥚"}, "醋":{z:"ㄘㄨˋ", i:"🍶"}, "豬肉":{z:"ㄓㄨ ㄖㄡˋ", i:"🐷"},
+  "青菜":{z:"ㄑㄧㄥ ㄘㄞˋ", i:"🥬"}, "花":{z:"ㄏㄨㄚ", i:"💐"}, "汽水":{z:"ㄑㄧˋ ㄕㄨㄟˇ", i:"🥤"},
+  "飯":{z:"ㄈㄢˋ", i:"🍚"}, "鹽":{z:"ㄧㄢˊ", i:"🧂"}, "牛肉":{z:"ㄋㄧㄡˊ ㄖㄡˋ", i:"🐮"},
+  "水":{z:"ㄕㄨㄟˇ", i:"💧"}, "豬絞肉":{z:"ㄓㄨ ㄐㄧㄠˇ ㄖㄡˋ", i:"🐷"}, "油":{z:"ㄧㄡˊ", i:"🫒"},
+  "大蒜末":{z:"ㄉㄚˋ ㄙㄨㄢˋ ㄇㄛˋ", i:"🧄"}, "油蔥酥":{z:"ㄧㄡˊ ㄘㄨㄥ ㄙㄨ", i:"🧅"}, "醬油":{z:"ㄐㄧㄤˋ ㄧㄡˊ", i:"🍶"}
+};
+
+/* 四道菜：材料、步驟、把字句、說作法（{b:答案} 是空格） */
+var DISHES = [
+  { name:"蛋糕", icon:"🎂", from:"短文〈麗安的日記〉",
+    need:["麵粉","奶油","糖","蛋"], decoy:["醋","豬肉","青菜","花","汽水"],
+    have:"蛋糕的材料有麵粉、奶油、糖跟蛋。",
+    steps:["把麵粉、奶油、糖跟蛋都拌好","放進烤箱","烤二十分鐘"],
+    baTip:"蛋糕的第一步", ba:["先","把","麵粉、奶油、糖跟蛋","都","拌好"], baAlt:["把麵粉、奶油、糖跟蛋都先拌好"],
+    tpl:[{b:"先"},"把麵粉、奶油、糖跟蛋都拌好，",{b:"再"},"放進烤箱，只要烤二十分鐘",{b:"就好了"},"。"] },
+  { name:"蛋炒飯", icon:"🍳", from:"綜合活動食譜",
+    need:["蛋","飯","鹽"], decoy:["麵粉","糖","醋","牛肉","奶油","青菜"],
+    have:"蛋炒飯的材料有蛋、飯和鹽。",
+    steps:["把蛋炒好","放飯和鹽","大概炒五分鐘"],
+    baTip:"蛋炒飯的第一步", ba:["先","把","蛋","炒好"], baAlt:["把蛋先炒好"],
+    tpl:[{b:"先"},"把蛋炒好，",{b:"再"},"放飯和鹽，大概炒五分鐘",{b:"就好了"},"。"] },
+  { name:"糖醋肉", icon:"🍖", from:"綜合活動食譜",
+    need:["醋","糖","鹽","水","豬肉","青菜"], decoy:["麵粉","奶油","牛肉"],
+    have:"糖醋肉的材料有醋、糖、鹽、水、豬肉和青菜。",
+    steps:["把豬肉放進油裡炸十分鐘","把醋、糖、鹽、水拌好","和炸好的豬肉一起炒","放進青菜","再炒三分鐘"],
+    baTip:"糖醋肉的第一步", ba:["先","把","豬肉","放進","油裡","炸十分鐘"], baAlt:["把豬肉先放進油裡炸十分鐘"],
+    tpl:[{b:"先"},"把豬肉放進油裡炸十分鐘，",{b:"再"},"把醋、糖、鹽、水拌好和炸好的豬肉一起炒，",{b:"最後"},"放進青菜再炒三分鐘",{b:"就好了"},"。"] },
+  { name:"滷肉飯", icon:"🍚", from:"Part V 食譜（挑戰關）",
+    need:["豬絞肉","油","大蒜末","油蔥酥","醬油","糖"], decoy:["牛肉","麵粉","奶油","青菜","汽水","花"],
+    have:"滷肉飯的材料有豬絞肉、油、大蒜末、油蔥酥、醬油、糖等等。",
+    steps:["把豬絞肉炒五分鐘，拿出來放在碗裡","把大蒜末和油蔥酥放進鍋子裡炒三分鐘","把豬絞肉放回鍋子裡一起炒","把別的材料都放進鍋子裡煮四十分鐘","把滷肉和滷肉汁放在白米飯上"],
+    baTip:"怎麼煮白米飯", ba:["用","電鍋","把","米飯","煮好"], baAlt:["把米飯用電鍋煮好"],
+    tpl:[{b:"先"},"把豬絞肉炒五分鐘，拿出來放在碗裡，",{b:"再"},"把大蒜末和油蔥酥放進鍋子裡炒三分鐘，然後把豬絞肉放回鍋子裡一起炒。把別的材料都放進鍋子裡煮四十分鐘，用電鍋把米飯煮好，",{b:"最後"},"把滷肉和滷肉汁放在白米飯上",{b:"就好了"},"。"] }
+];
+var CHIPS = [["先","ㄒㄧㄢ"],["再","ㄗㄞˋ"],["最後","ㄗㄨㄟˋ ㄏㄡˋ"],["就好了","ㄐㄧㄡˋ ㄏㄠˇ ˙ㄌㄜ"],["比","ㄅㄧˇ"],["一邊","ㄧˋ ㄅㄧㄢ"]];
+
+/* 上菜前的小任務：三次中場各對應一個學習目標，保證每位學生都練到 */
+var OBJ = ["","表達興趣","拒絕並建議","寫日記","說明做法"];
+var MC = {
+  weile:{q:"爸爸為什麼煎牛排、煮麵？", a:"為了慶祝媽媽的生日。", o:["為了做蛋糕。","為了去超級市場。","為了學跳舞。"],
+    why:"「為了……」說出做一件事的目的。"},
+  yibian:{q:"吃了晚飯以後，麗安一家人在做什麼？", a:"一邊吃蛋糕，一邊喝汽水。",
+    o:["一邊煎牛排，一邊煮麵。","一邊跳舞，一邊唱歌。","一邊看電視，一邊吃牛排。"], why:"「一邊……一邊……」表示兩件事同時做。"},
+  shu:{q:"日記裡寫：爸爸買了一＿＿花送給媽媽。", a:"束", o:["個","塊","碗"], why:"花用「束」：一束花。"},
+  kuai:{q:"爸爸幫媽媽煎了一＿＿牛排。", a:"塊", o:["束","碗","個"], why:"牛排用「塊」：一塊牛排；麵用「碗」：一碗麵。"},
+  noGo:{q:"康康想請你明天一起去看電影，可是你要練習跳舞。你怎麼說比較好？", a:"我沒辦法去，因為我要練習跳舞。我建議你找明真一起去吧！",
+    o:["好啊，我明天一定去。","我沒辦法去。","我要練習跳舞，你也不要去看電影了。"],
+    why:"只說「我沒辦法去」不夠客氣。先說原因，再用「我建議你……吧！」幫對方想辦法。"},
+  noTeach:{q:"媽媽為什麼沒辦法教明真跳舞？", a:"因為她很久沒跳了。", o:["因為她沒學過舞蹈。","因為她今天很累。","因為阿姨不讓她教。"],
+    why:"媽媽說：「我沒辦法教你，因為我很久沒跳了。」拒絕的時候要說出原因。"},
+  praise:{q:"媽媽怎麼誇獎明真？", a:"你只學了三個月就跳得這麼好，真不容易。",
+    o:["我沒辦法教你。","我建議你問問阿姨吧！","發表會終於結束了。"], why:"「只……就……」表示時間不長卻做得很好，這是誇獎。"},
+  interest:{q:"你想告訴朋友你很喜歡做菜，可以怎麼說？", a:"我對做菜很有興趣。",
+    o:["做菜對我很有興趣。","我很有興趣對做菜。","我對做菜很興趣。"], why:"說法是「我＋對＋事情＋（很）有興趣」。"}
+};
+var DIALOGS = [
+  { who:"明真", me:"媽媽", ask:"你們跳得怎麼樣？可以教我嗎？", ctx:"你是媽媽。你很久沒跳舞了，可是阿姨還在跳。",
+    r:{a:"我沒辦法教你，因為我很久沒跳了。", o:["好啊，我現在就教你。","我也覺得我跳得不錯。","雖然很累，但是跳得很開心。"]},
+    s:{a:"我建議你問問阿姨吧！", o:["你只學了三個月就跳得這麼好。","我從一年級就開始學了。","發表會終於結束了。"]} },
+  { who:"同學", me:"你", ask:"你可以教我做糖醋肉嗎？", ctx:"你不會做糖醋肉，可是康康會做。",
+    r:{a:"我沒辦法教你，因為我不會做糖醋肉。", o:["好，我先把豬肉放進油裡。","糖醋肉的材料比蛋炒飯多多了。","我很會做糖醋肉。"]},
+    s:{a:"我建議你問問康康吧！", o:["糖醋肉很好吃。","你可以教我嗎？","我也不會做蛋糕。"]} }
+];
+var DLG_WHY = "拒絕的時候，先說「我沒辦法……，因為……」，再用「我建議你……吧！」幫對方想辦法。";
+var BREAKS = [
+  { title:"寫日記", obj:3, tasks:[
+    {type:"build", tip:"日記的第一行要寫日期和天氣，請排出來。", toks:["五月","十五號","天氣","晴"],
+     say:"五月十五號，天氣晴。", why:"寫日記先寫日期：月在前、號在後，再寫天氣。"},
+    {type:"mc", pool:["weile","yibian","shu","kuai"]} ]},
+  { title:"拒絕與建議", obj:2, tasks:[ {type:"dialog"}, {type:"mc", pool:["noGo","noTeach"]} ]},
+  { title:"表達興趣與誇獎", obj:1, tasks:[
+    {type:"build", tip:"明真說她為什麼跳得好，請排出她說的話。", toks:["因為我","對跳舞","有興趣","再加上","我一直練習","所以","可以跳得很好"],
+     say:"因為我對跳舞有興趣，再加上我一直練習，所以可以跳得很好。", why:"「因為……再加上……所以……」可以說出兩個原因。"},
+    {type:"mc", pool:["praise","interest"]} ]}
+];
+var PHASES = ["拿材料","排步驟","排句子","說作法"];
+
+/* ============================================================
+   二、音效與語音
+   ============================================================ */
+var AC=null;
+function audio(){ if(!$("o-sfx").checked) return null;
+  try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); return AC; }catch(e){ return null; } }
+function beep(f1,f2,dur,type,vol){ var ac=audio(); if(!ac) return;
+  var o=ac.createOscillator(), g=ac.createGain(); o.type=type||"square";
+  o.frequency.setValueAtTime(f1,ac.currentTime); if(f2) o.frequency.linearRampToValueAtTime(f2,ac.currentTime+dur);
+  g.gain.setValueAtTime(vol||.05,ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+dur);
+  o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+dur+.02); }
+function sRight(){ beep(660,1320,.2,"triangle",.07); }
+function sWrong(){ beep(300,110,.3,"sawtooth",.05); }
+function sTap(){ beep(520,0,.06,"square",.03); }
+function sClear(){ [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){ beep(f,0,.16,"triangle",.07); }, i*120); }); }
+var VOICE=null;
+function pickVoice(){ try{ var vs=speechSynthesis.getVoices();
+  VOICE = vs.filter(function(v){ return /zh[-_]TW/i.test(v.lang); })[0] || vs.filter(function(v){ return /^zh/i.test(v.lang); })[0] || null; }catch(e){} }
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(String(text).replace(/＿+/g,"什麼"));
+    u.lang="zh-TW"; if(VOICE) u.voice=VOICE; u.rate=.85; speechSynthesis.speak(u); }catch(e){}
+}
+function speakIf(t){ if($("o-tts").checked) speak(t); }
+
+/* ============================================================
+   三、遊戲狀態與畫面骨架
+   ============================================================ */
+var stage=$("stage"), G=null, P=null, ticker=0, toastTimer=0;
+function zyOn(){ return $("o-zy").checked; }
+function toast(msg){ var t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.hidden=true; },1900); }
+function judge(ok,label,o){ var ob=G.obj[o||4]; ob.t++;
+  if(ok){ G.right++; ob.r++; } else { G.wrong++; G.mis++; if(label) G.wrongList.push(label); } }
+function pct(ob){ return ob.t?Math.round(ob.r/ob.t*100):null; }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function elapsed(){ return G ? (G.over ? G.seconds : (now()-G.t0)/1000) : 0; }
+function starsFor(m){ return m===0?3:(m<=2?2:1); }
+function starStr(n){ var s=""; for(var i=0;i<3;i++) s+= i<n ? "★" : "<span class='off'>★</span>"; return s; }
+
+function hud(){
+  var cur = G ? G.dish : -1;
+  var plates = DISHES.map(function(d,i){
+    var cls="plate", st="<span class='st'></span>";
+    if(G && G.stars[i]!=null){ cls+=" done"; st="<span class='st'>"+"★★★".slice(0,G.stars[i])+"</span>"; }
+    if(G && !G.over && i===cur && G.stars[i]==null) cls+=" now";
+    return "<span class='"+cls+"'><span><span class='ic' aria-hidden='true'>"+d.icon+"</span> "+d.name+"</span>"+st+"</span>";
+  }).join("");
+  $("hud").innerHTML="<div class='plates'>"+plates+"</div><div class='meter'><span>分數 <b id='h-score'>"+(G?G.score:0)+
+    "</b></span><span>時間 <b id='h-time'>"+fmt(elapsed())+"</b></span></div>";
+}
+function tick(){ var t=$("h-time"); if(t) t.textContent=fmt(elapsed()); }
+
+function panel(ph, inner){
+  var bar="";
+  if(ph!=null){
+    bar="<div class='phases' aria-label='做菜的步驟'>"+PHASES.map(function(n,i){
+      var c="ph"+(i===ph?" on":"")+(i<ph?" ok":"");
+      return "<span class='"+c+"'><i>"+(i<ph?"✓":(i+1))+"</i>"+n+"</span>";
+    }).join("")+"</div>";
+  }
+  stage.innerHTML="<div class='panel'>"+bar+inner+"</div>";
+}
+function keyLabel(k){ return k<=9 ? "<span class='k'>"+k+"</span>" : ""; }
+
+/* ---------- 開場 ---------- */
+function showTitle(){
+  hud();
+  panel(null,
+    "<h2>今天你是小廚師！</h2>"+
+    "<div class='intro-plates'>"+DISHES.map(function(d){ return "<div><b aria-hidden='true'>"+d.icon+"</b>"+d.name+"</div>"; }).join("")+"</div>"+
+    "<p>一共四道菜，從簡單到難。每道菜都有四個步驟：</p>"+
+    "<p><b>1 拿材料</b>：找出這道菜要用的材料。<br><b>2 排步驟</b>：把做菜的步驟排好順序。<br>"+
+    "<b>3 排句子</b>：用「把」排出一句話。<br><b>4 說作法</b>：填上「先、再、最後、就好了」，說出整個作法。</p>"+
+    "<p>做好一道菜以後，還要完成「上菜前的小任務」：寫日記、拒絕與建議、表達興趣與誇獎。錯得越少，星星越多！</p>"+
+    "<p class='hint'>請先在上方填好學校、班級和姓名，再按「開始遊戲」。</p>"+
+    "<button class='act' data-act='start' type='button'>開始遊戲</button>");
+}
+
+function tryStart(){
+  var nm=$("f-name").value.trim();
+  if(!nm){ $("f-name").focus(); toast("請先輸入姓名"); return; }
+  if(G && !G.over && !confirm("重新開始會放棄這一次的進度，確定嗎？")) return;
+  lsSet(LS.sc,$("f-school").value.trim()); lsSet(LS.cl,$("f-class").value.trim()); lsSet(LS.nm,nm);
+  audio();
+  G={ score:0, right:0, wrong:0, wrongList:[], dish:0, t0:now(), dishT0:now(), dishTimes:[], stars:[], mis:0,
+      obj:{1:{r:0,t:0},2:{r:0,t:0},3:{r:0,t:0},4:{r:0,t:0}}, over:false, seconds:0,
+      school:$("f-school").value.trim(), cls:$("f-class").value.trim(), name:nm,
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,8) };
+  $("btn-quit").hidden=false; $("btn-start").textContent="重新開始"; setSync("");
+  clearInterval(ticker); ticker=setInterval(tick,500);
+  startDish(0);
+  $("board").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function startDish(i){ G.dish=i; G.mis=0; G.dishT0=now(); hud(); phaseIng(); }
+
+/* ============================================================
+   四、第 1 步：拿材料
+   ============================================================ */
+function phaseIng(){ var d=DISHES[G.dish]; P={ph:0, items:shuffle(d.need.concat(d.decoy)), got:[], bad:[], flash:-1}; renderIng(); }
+function renderIng(){
+  var d=DISHES[G.dish], left=d.need.length-P.got.length, done=left===0;
+  var bask = P.got.length ? P.got.map(function(w,k){ return "<span class='inb"+(k===P.got.length-1&&P.fresh?" pop":"")+"'>"+ING[w].i+" "+esc(w)+"</span>"; }).join("")
+    : "<span class='empty'>籃子還是空的</span>";
+  var grid = P.items.map(function(w,k){
+    var g=P.got.indexOf(w)>=0, b=P.bad.indexOf(w)>=0;
+    return "<button type='button' class='ing"+(g?" good":"")+(b?" bad":"")+(P.flash===k?" shake":"")+"' data-act='ing' data-i='"+k+"'"+
+      ((g||b||done)?" disabled":" data-k='"+(k+1)+"'")+">"+((g||b||done)?"":keyLabel(k+1))+
+      "<span class='em' aria-hidden='true'>"+ING[w].i+"</span><span class='w'>"+esc(w)+"</span><span class='zy'>"+(zyOn()?ING[w].z:"")+"</span></button>";
+  }).join("");
+  var html="<h2>做"+d.name+"要用哪些材料？</h2><p class='sub'>"+(done?"材料都找齊了！":"找出 "+d.need.length+" 樣材料放進籃子，還差 "+left+" 樣。")+"</p>"+
+    "<div class='basket' aria-label='籃子'>"+bask+"</div>";
+  if(done){
+    html+="<div class='saybox"+(P.fresh?" pop":"")+"'>"+esc(d.have)+"<button class='small' type='button' data-act='say' data-t='"+esc(d.have)+"'>聽一聽</button></div>"+
+      "<button class='act' type='button' data-act='toOrder'>下一步：排步驟</button>";
+  }
+  html+="<div class='pantry"+(P.items.length>9?" wide":"")+"'>"+grid+"</div>";
+  P.flash=-1; P.fresh=false;
+  panel(0, html);
+}
+function pickIng(k){
+  var d=DISHES[G.dish], w=P.items[k];
+  if(w==null || P.got.indexOf(w)>=0 || P.bad.indexOf(w)>=0) return;
+  if(d.need.indexOf(w)>=0){
+    P.got.push(w); P.fresh=true; G.score+=10; judge(true); sRight();
+    if(P.got.length===d.need.length){ setTimeout(sClear,150); speakIf(d.have); } else speakIf(w);
+  } else {
+    P.bad.push(w); judge(false, d.name+"的材料：選了「"+w+"」"); sWrong(); P.flash=k;
+    toast("「"+w+"」不是"+d.name+"的材料");
+  }
+  hud(); renderIng();
+}
+
+/* ============================================================
+   五、第 2 步：排步驟
+   ============================================================ */
+function phaseOrder(){ var n=DISHES[G.dish].steps.length;
+  P={ph:1, slots:new Array(n).fill(-1), lock:new Array(n).fill(false), tray:shuffledIdx(n), checks:0, done:false}; renderOrder(); }
+function renderOrder(){
+  var d=DISHES[G.dish], n=d.steps.length, firstEmpty=P.slots.indexOf(-1), full=firstEmpty<0;
+  var list="<ol class='slots'>"+P.slots.map(function(c,k){
+    var cls="slot"+(c<0?" empty":(P.lock[k]?" lock":" filled"));
+    var txt = c<0 ? (k===firstEmpty?"點下面的步驟，放到這裡":"") : esc(d.steps[c]);
+    return "<li><span class='num'>"+(k+1)+"</span><button type='button' class='"+cls+"' data-act='unslot' data-i='"+k+"'"+
+      ((c<0||P.lock[k])?" disabled":" aria-label='第"+(k+1)+"步："+esc(d.steps[c])+"，點一下拿回去'")+">"+txt+"</button></li>";
+  }).join("")+"</ol>";
+  var tray = P.tray.length ? P.tray.map(function(c,j){
+    return "<button type='button' class='card-step' data-act='slot' data-i='"+c+"' data-k='"+(j+1)+"'>"+keyLabel(j+1)+esc(d.steps[c])+"</button>";
+  }).join("") : "<span class='none'>"+(P.done?"順序都對了！":"步驟都放好了，按「檢查」看看。")+"</span>";
+  var html="<h2>"+d.name+"要怎麼做？</h2><p class='sub'>把步驟依照順序放好。放錯了可以點一下拿回來。</p>"+list+
+    "<div class='tray' aria-label='步驟卡'>"+tray+"</div>";
+  html += P.done ? "<p class='ok-line'>做得好！"+(P.checks===1?"一次就排對了。":"")+"</p><button class='act' type='button' data-act='toBa'>下一步：排句子</button>"
+                 : "<button class='act' type='button' data-act='checkOrder'"+(full?"":" disabled")+">檢查順序</button>";
+  panel(1, html);
+}
+function placeCard(c){
+  var k=P.slots.indexOf(-1); if(k<0) return;
+  P.slots[k]=c; P.tray.splice(P.tray.indexOf(c),1); sTap(); speakIf(DISHES[G.dish].steps[c]); renderOrder();
+}
+function unslot(k){ if(P.lock[k]||P.slots[k]<0) return; P.tray.push(P.slots[k]); P.slots[k]=-1; sTap(); renderOrder(); }
+function checkOrder(){
+  if(P.slots.indexOf(-1)>=0 || P.done) return;
+  var d=DISHES[G.dish], first=P.checks===0, bad=[];
+  P.checks++;
+  P.slots.forEach(function(c,k){
+    if(P.lock[k]) return;
+    if(c===k){ P.lock[k]=true; judge(true); G.score += first?10:5; }
+    else { judge(false); bad.push(k+1); P.tray.push(c); P.slots[k]=-1; }
+  });
+  if(bad.length){
+    G.wrongList.push(d.name+"排步驟：第 "+bad.join("、")+" 步放錯");
+    sWrong(); toast("有 "+bad.length+" 個步驟放錯了，再排排看");
+  } else { P.done=true; sClear(); speakIf(d.steps.join("，")); }
+  hud(); renderOrder();
+}
+
+/* ============================================================
+   六、第 3 步：排句子（把字句）
+   ============================================================ */
+function phaseBa(){ var d=DISHES[G.dish];
+  P={ph:2, tray:shuffledIdx(d.ba.length), ans:[], tries:0, done:false, flash:false, said:""}; renderBa(); }
+function renderBa(){
+  var d=DISHES[G.dish], full=P.ans.length===d.ba.length, target=d.ba.join("");
+  var ans = P.ans.length ? P.ans.map(function(t){
+    return "<button type='button' class='tok' data-act='untok' data-i='"+t+"'"+(P.done?" disabled":"")+">"+esc(d.ba[t])+"</button>"; }).join("")+(P.done?"<span class='tok' style='border:0'>。</span>":"")
+    : "<span class='empty'>點下面的詞語，排成一句話</span>";
+  var tray = P.tray.length ? P.tray.map(function(t,j){
+    return "<button type='button' class='tok' data-act='tok' data-i='"+t+"' data-k='"+(j+1)+"'>"+keyLabel(j+1)+esc(d.ba[t])+"</button>"; }).join("")
+    : "<span class='none'>"+(P.done?"排對了！":"詞語都用上了，按「檢查」看看。")+"</span>";
+  var html="<h2>用「把」排出一句話</h2><p class='sub'>這句話說的是："+esc(d.baTip)+"。</p>"+
+    "<div class='answer"+(P.done?" ok":"")+(P.flash?" shake":"")+"' aria-label='我的句子'>"+ans+"</div>"+
+    "<div class='tray' aria-label='詞語卡'>"+tray+"</div>";
+  if(!P.done && P.tries>=2) html+="<p class='hint'>提示：這句話的開頭是「"+esc(d.ba[0]+d.ba[1])+"」。</p>";
+  if(P.done){
+    if(P.said!==target) html+="<p class='hint'>你的說法也對！課本的說法是：「"+esc(target)+"。」</p>";
+    html+="<div class='row center'><button type='button' class='small' data-act='say' data-t='"+esc(target)+"。'>聽一聽</button></div>"+
+      "<button class='act' type='button' data-act='toConn'>下一步：說作法</button>";
+  } else {
+    html+="<div class='row center'><button type='button' class='small' data-act='clearBa'"+(P.ans.length?"":" disabled")+">全部拿回來</button>"+
+      "<button class='act' type='button' data-act='checkBa'"+(full?"":" disabled")+">檢查句子</button></div>";
+  }
+  P.flash=false;
+  panel(2, html);
+}
+function addTok(t){ if(P.done) return; P.ans.push(t); P.tray.splice(P.tray.indexOf(t),1); sTap(); renderBa(); }
+function removeTok(t){ if(P.done) return; P.ans.splice(P.ans.indexOf(t),1); P.tray.push(t); sTap(); renderBa(); }
+function clearBa(){ if(P.done) return; P.tray=P.tray.concat(P.ans); P.ans=[]; renderBa(); }
+function checkBa(){
+  var d=DISHES[G.dish]; if(P.done || P.ans.length!==d.ba.length) return;
+  var s=P.ans.map(function(t){ return d.ba[t]; }).join(""), target=d.ba.join("");
+  if(s===target || (d.baAlt||[]).indexOf(s)>=0){
+    P.done=true; P.said=s; judge(true); G.score += P.tries===0?20:10; sRight(); speakIf(s+"。");
+  } else {
+    P.tries++; judge(false, d.name+"排句子：「"+s+"」"); sWrong(); P.flash=true; toast("順序不太對，再想想");
+  }
+  hud(); renderBa();
+}
+
+/* ============================================================
+   七、第 4 步：說作法（先、再、最後、就好了）
+   ============================================================ */
+function blanks(d){ return d.tpl.filter(function(s){ return typeof s!=="string"; }).map(function(s){ return s.b; }); }
+function fullText(d){ return d.tpl.map(function(s){ return typeof s==="string"?s:s.b; }).join(""); }
+function phaseConn(){ P={ph:3, fill:[], chips:shuffle(CHIPS.slice()), flash:-1, done:false}; renderConn(); }
+function renderConn(){
+  var d=DISHES[G.dish], j=0;
+  var para = d.tpl.map(function(s){
+    if(typeof s==="string") return esc(s);
+    var idx=j++;
+    if(idx<P.fill.length) return "<span class='blank fill'>"+esc(P.fill[idx])+"</span>";
+    if(idx===P.fill.length) return "<span class='blank on'>？</span>";
+    return "<span class='blank'>　</span>";
+  }).join("");
+  var chips = P.chips.map(function(c,k){
+    return "<button type='button' class='chip"+(P.flash===k?" shake":"")+"' data-act='chip' data-i='"+k+"'"+(P.done?" disabled":" data-k='"+(k+1)+"'")+">"+
+      (P.done?"":keyLabel(k+1))+"<span class='w'>"+esc(c[0])+"</span><span class='zy'>"+(zyOn()?c[1]:"")+"</span></button>";
+  }).join("");
+  var html="<h2>說一說"+d.name+"的作法</h2><p class='sub'>"+(P.done?"整個作法都說出來了！":"選一個詞，填進黃色的空格。")+"</p>"+
+    "<p class='tpl'>"+para+"</p>";
+  if(P.done){
+    html+="<div class='row center'><button type='button' class='small' data-act='say' data-t='"+esc(fullText(d))+"'>聽一聽，跟著念</button></div>"+
+      "<button class='act' type='button' data-act='serve'>上菜！</button>";
+  } else html+="<div class='chips'>"+chips+"</div>";
+  P.flash=-1;
+  panel(3, html);
+}
+function pickChip(k){
+  var d=DISHES[G.dish], b=blanks(d), c=P.chips[k][0];
+  if(P.done) return;
+  if(c===b[P.fill.length]){
+    P.fill.push(c); judge(true); G.score+=10; sRight();
+    if(P.fill.length===b.length){ P.done=true; setTimeout(sClear,150); speakIf(fullText(d)); }
+  } else {
+    judge(false, d.name+"說作法：第 "+(P.fill.length+1)+" 個空格選了「"+c+"」"); sWrong(); P.flash=k;
+  }
+  hud(); renderConn();
+}
+
+/* ============================================================
+   八、上菜與小問題
+   ============================================================ */
+function serve(){
+  var d=DISHES[G.dish], s=starsFor(G.mis);
+  G.stars[G.dish]=s; G.dishTimes[G.dish]=Math.round((now()-G.dishT0)/1000);
+  hud(); sClear();
+  var last = G.dish===DISHES.length-1;
+  panel(null,
+    "<div class='served'><div class='big pop' aria-hidden='true'>"+d.icon+"</div><h2>"+d.name+"做好了！</h2>"+
+    "<div class='stars' aria-label='"+s+" 顆星'>"+starStr(s)+"</div>"+
+    "<p class='sub'>"+(G.mis===0?"一次都沒錯，太厲害了！":"這道菜錯了 "+G.mis+" 次。")+"用了 "+fmt(G.dishTimes[G.dish])+"。</p></div>"+
+    "<div class='saybox'>"+esc(fullText(d))+"<button class='small' type='button' data-act='say' data-t='"+esc(fullText(d))+"'>聽一聽</button></div>"+
+    (last ? "<button class='act' type='button' data-act='finish'>看成績</button>"
+          : "<button class='act' type='button' data-act='toBreak'>上菜前的小任務："+BREAKS[G.dish].title+"</button>"));
+}
+function startTask(ti){
+  var t=BREAKS[G.dish].tasks[ti];
+  P={ph:"brk", ti:ti, type:t.type, task:t};
+  if(t.type==="mc"){ var q=MC[pick(t.pool)]; P.q=q; P.opts=shuffle([q.a].concat(q.o)); P.pick=-1; speakIf(q.q); }
+  else if(t.type==="build"){ P.tray=shuffledIdx(t.toks.length); P.ans=[]; P.tries=0; P.done=false; P.flash=false; }
+  else { var d=pick(DIALOGS); P.dlg=d; P.step=0; P.picks=[-1,-1];
+    P.opts=[shuffle([d.r.a].concat(d.r.o)), shuffle([d.s.a].concat(d.s.o))]; speakIf(d.who+"說："+d.ask); }
+  renderTask();
+}
+function brObj(){ return BREAKS[G.dish].obj; }
+function taskHead(){ var br=BREAKS[G.dish];
+  return "<p class='sub'>上菜前的小任務："+br.title+"（"+(P.ti+1)+"／"+br.tasks.length+"）</p>"; }
+function nextBtn(){ var br=BREAKS[G.dish];
+  return P.ti<br.tasks.length-1 ? "<button class='act' type='button' data-act='nextTask'>下一個任務</button>"
+    : "<button class='act' type='button' data-act='nextDish'>下一道菜："+DISHES[G.dish+1].name+"</button>"; }
+function renderTask(){ if(P.type==="mc") renderMC(); else if(P.type==="build") renderBuild(); else renderDialog(); }
+function choiceList(opts, answer, picked, act){
+  var answered=picked>=0;
+  return "<div class='choices'>"+opts.map(function(o,k){
+    var cls="choice"; if(answered){ if(o===answer) cls+=" good"; else if(k===picked) cls+=" bad"; }
+    return "<button type='button' class='"+cls+"' data-act='"+act+"' data-i='"+k+"'"+(answered?" disabled":" data-k='"+(k+1)+"'")+">"+(answered?"":keyLabel(k+1))+esc(o)+"</button>";
+  }).join("")+"</div>";
+}
+function verdict(ok, answer, why){
+  return "<p class='why'>"+(ok?"<b class='ok-line'>答對了！</b>":"<b style='color:var(--tomato)'>正確答案是：「"+esc(answer)+"」</b>")+"<br>"+esc(why)+"</p>";
+}
+
+/* 選擇題 */
+function renderMC(){
+  var q=P.q, html=taskHead()+"<h3>"+esc(q.q)+" <button type='button' class='small' data-act='say' data-t='"+esc(q.q)+"'>聽題目</button></h3>"+
+    choiceList(P.opts, q.a, P.pick, "opt");
+  if(P.pick>=0) html+=verdict(P.opts[P.pick]===q.a, q.a, q.why)+nextBtn();
+  panel(null, html);
+}
+function answerMC(k){
+  if(P.pick>=0) return;
+  P.pick=k; var ok=P.opts[k]===P.q.a;
+  judge(ok, ok?null:BREAKS[G.dish].title+"：「"+P.q.q+"」選了「"+P.opts[k]+"」", brObj());
+  if(ok){ G.score+=10; sRight(); speakIf(P.q.a); } else sWrong();
+  hud(); renderMC();
+}
+
+/* 排句子（日記日期、因為……再加上……所以） */
+function renderBuild(){
+  var t=P.task, full=P.ans.length===t.toks.length;
+  var ans = P.ans.length ? P.ans.map(function(i){
+    return "<button type='button' class='tok' data-act='untokB' data-i='"+i+"'"+(P.done?" disabled":"")+">"+esc(t.toks[i])+"</button>"; }).join("")
+    : "<span class='empty'>點下面的詞語，排成一句話</span>";
+  var tray = P.tray.length ? P.tray.map(function(i,j){
+    return "<button type='button' class='tok' data-act='tokB' data-i='"+i+"' data-k='"+(j+1)+"'>"+keyLabel(j+1)+esc(t.toks[i])+"</button>"; }).join("")
+    : "<span class='none'>"+(P.done?"排對了！":"詞語都用上了，按「檢查」看看。")+"</span>";
+  var html=taskHead()+"<h3>"+esc(t.tip)+"</h3>"+
+    "<div class='answer"+(P.done?" ok":"")+(P.flash?" shake":"")+"' aria-label='我的句子'>"+ans+"</div>"+
+    "<div class='tray' aria-label='詞語卡'>"+tray+"</div>";
+  if(P.done){
+    html+="<div class='saybox'>"+esc(t.say)+"<button class='small' type='button' data-act='say' data-t='"+esc(t.say)+"'>聽一聽</button></div>"+
+      "<p class='why'>"+esc(t.why)+"</p>"+nextBtn();
+  } else {
+    if(P.tries>=2) html+="<p class='hint'>提示：這句話的開頭是「"+esc(t.toks[0])+"」。</p>";
+    html+="<div class='row center'><button type='button' class='small' data-act='clearB'"+(P.ans.length?"":" disabled")+">全部拿回來</button>"+
+      "<button class='act' type='button' data-act='checkB'"+(full?"":" disabled")+">檢查句子</button></div>";
+  }
+  P.flash=false;
+  panel(null, html);
+}
+function addTokB(i){ if(P.done) return; P.ans.push(i); P.tray.splice(P.tray.indexOf(i),1); sTap(); renderBuild(); }
+function removeTokB(i){ if(P.done) return; P.ans.splice(P.ans.indexOf(i),1); P.tray.push(i); sTap(); renderBuild(); }
+function clearB(){ if(P.done) return; P.tray=P.tray.concat(P.ans); P.ans=[]; renderBuild(); }
+function checkB(){
+  var t=P.task; if(P.done || P.ans.length!==t.toks.length) return;
+  var s=P.ans.map(function(i){ return t.toks[i]; }).join("");
+  if(s===t.toks.join("")){ P.done=true; judge(true,null,brObj()); G.score += P.tries===0?20:10; sRight(); speakIf(t.say); }
+  else { P.tries++; judge(false, BREAKS[G.dish].title+"排句子：「"+s+"」", brObj()); sWrong(); P.flash=true; toast("順序不太對，再想想"); }
+  hud(); renderBuild();
+}
+
+/* 兩段式對話：先拒絕，再建議 */
+function renderDialog(){
+  var d=P.dlg, part=[d.r, d.s], step=P.step, picked=P.picks[step];
+  var reply = (P.picks[0]>=0 ? esc(d.r.a) : "<span class='gap'>（先拒絕）</span>")+
+              (P.picks[1]>=0 ? esc(d.s.a) : (P.picks[0]>=0 ? "<span class='gap'>（再建議）</span>" : ""));
+  var html=taskHead()+"<p class='hint'>"+esc(d.ctx)+"</p>"+
+    "<div class='dlg'><p><b>"+esc(d.who)+"：</b>"+esc(d.ask)+"</p><p><b>"+esc(d.me)+"：</b>"+reply+"</p></div>"+
+    "<h3>"+(step===0?"第一句：先拒絕，要怎麼說？":"第二句：再給一個建議，要怎麼說？")+"</h3>"+
+    choiceList(P.opts[step], part[step].a, picked, "dlgPick");
+  if(picked>=0){
+    var ok=P.opts[step][picked]===part[step].a;
+    if(step===0) html+=verdict(ok, d.r.a, "拒絕的時候先說「我沒辦法……」，再說原因「因為……」。")+
+      "<button class='act' type='button' data-act='dlgNext'>下一句：給建議</button>";
+    else html+=verdict(ok, d.s.a, DLG_WHY)+
+      "<div class='row center'><button type='button' class='small' data-act='say' data-t='"+esc(d.r.a+d.s.a)+"'>聽整段回答</button></div>"+nextBtn();
+  }
+  panel(null, html);
+}
+function dlgPick(k){
+  var d=P.dlg, part=[d.r, d.s][P.step];
+  if(P.picks[P.step]>=0) return;
+  P.picks[P.step]=k; var ok=P.opts[P.step][k]===part.a;
+  judge(ok, ok?null:"拒絕與建議：「"+d.ask+"」"+(P.step===0?"拒絕":"建議")+"選了「"+P.opts[P.step][k]+"」", brObj());
+  if(ok){ G.score+=10; sRight(); } else sWrong();
+  speakIf(P.step===1 ? d.r.a+d.s.a : d.r.a);
+  hud(); renderDialog();
+}
+
+/* ============================================================
+   九、結束與成績
+   ============================================================ */
+function finish(reason){
+  if(!G || G.over) return;
+  G.seconds=(now()-G.t0)/1000; G.over=true; clearInterval(ticker);
+  var total=G.right+G.wrong, acc=total?Math.round(G.right/total*100):0, done=G.stars.filter(function(s){ return s!=null; }).length;
+  var starTotal=G.stars.reduce(function(a,s){ return a+(s||0); },0);
+  hud(); $("btn-quit").hidden=true; $("btn-start").textContent="再玩一次";
+  var wl=G.wrongList.slice(0,30);
+  panel(null,
+    "<div class='served'><div class='big pop' aria-hidden='true'>"+(done===DISHES.length?"👩‍🍳":"🍽️")+"</div>"+
+    "<h2>"+(done===DISHES.length?"四道菜都做好了！":"今天先做到這裡")+"</h2>"+
+    "<p class='sub'>"+esc(G.name)+"，你一共拿到 "+starTotal+" 顆星，"+total+" 次作答中答對 "+G.right+" 次。</p></div>"+
+    "<div class='stat'><div><b>"+G.score+"</b><span>分數</span></div><div><b>"+acc+"%</b><span>正確率</span></div><div><b>"+fmt(G.seconds)+"</b><span>時間</span></div></div>"+
+    "<div class='dishrow'>"+DISHES.map(function(d,i){
+      return "<div><span>"+d.icon+" "+d.name+"</span><small>"+(G.stars[i]!=null?"★★★".slice(0,G.stars[i])+"　"+fmt(G.dishTimes[i]):"沒做完")+"</small></div>"; }).join("")+"</div>"+
+    "<p class='hint'>四個學習目標</p><div class='objs'>"+[1,2,3,4].map(function(o){ var v=pct(G.obj[o]);
+      return "<div class='obj'><span>"+OBJ[o]+"</span><span class='bar'><i style='width:"+(v||0)+"%'></i></span><b>"+(v==null?"—":v+"%")+"</b></div>"; }).join("")+"</div>"+
+    (wl.length ? "<p class='hint'>再練習一下這些地方：</p><ul class='wronglist'>"+wl.map(function(w){ return "<li>"+esc(w)+"</li>"; }).join("")+"</ul>"
+               : "<p class='ok-line'>全部都對，你是真正的小廚師！</p>")+
+    "<p class='sync' id='sync2'></p>"+
+    "<button class='act' type='button' data-act='again'>再玩一次</button>");
+  upload({
+    id:G.id, school:G.school, cls:G.cls, name:G.name, ip:IP,
+    score:G.score, right:G.right, total:total, acc:acc,
+    stars:DISHES.map(function(d,i){ return d.name+(G.stars[i]!=null?G.stars[i]+"星":"未完成"); }).join("、"),
+    seconds:Math.round(G.seconds),
+    stages:DISHES.map(function(d,i){ return G.dishTimes[i]!=null? d.name+" "+G.dishTimes[i]+"秒" : null; }).filter(Boolean).join("、"),
+    done:done, wrongCount:G.wrong, wrong:G.wrongList.join("；").slice(0,1500), reason:reason,
+    objs:[1,2,3,4].map(function(o){ var v=pct(G.obj[o]); return OBJ[o]+" "+(v==null?"未作答":v+"%"); }).join("、"),
+    lesson:LESSON, ua:navigator.userAgent.slice(0,180)
+  });
+}
+
+/* ============================================================
+   十、點擊與鍵盤
+   ============================================================ */
+stage.addEventListener("click", function(e){
+  var b=e.target.closest("button"); if(!b || b.disabled || !stage.contains(b)) return;
+  var act=b.getAttribute("data-act"), i=Number(b.getAttribute("data-i"));
+  switch(act){
+    case "start": tryStart(); break;
+    case "say": speak(b.getAttribute("data-t")); break;
+    case "ing": pickIng(i); break;
+    case "toOrder": phaseOrder(); break;
+    case "slot": placeCard(i); break;
+    case "unslot": unslot(i); break;
+    case "checkOrder": checkOrder(); break;
+    case "toBa": phaseBa(); break;
+    case "tok": addTok(i); break;
+    case "untok": removeTok(i); break;
+    case "clearBa": clearBa(); break;
+    case "checkBa": checkBa(); break;
+    case "toConn": phaseConn(); break;
+    case "chip": pickChip(i); break;
+    case "serve": serve(); break;
+    case "toBreak": startTask(0); break;
+    case "opt": answerMC(i); break;
+    case "tokB": addTokB(i); break;
+    case "untokB": removeTokB(i); break;
+    case "clearB": clearB(); break;
+    case "checkB": checkB(); break;
+    case "dlgPick": dlgPick(i); break;
+    case "dlgNext": P.step=1; renderDialog(); break;
+    case "nextTask": startTask(P.ti+1); break;
+    case "nextDish": startDish(G.dish+1); break;
+    case "finish": finish("完成全部"); break;
+    case "again": tryStart(); break;
+  }
+});
+document.addEventListener("keydown", function(e){
+  var tg=e.target; if(tg && (tg.tagName==="INPUT"||tg.tagName==="TEXTAREA")) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(/^[1-9]$/.test(e.key)){
+    var b=stage.querySelector("[data-k='"+e.key+"']:not(:disabled)"); if(b){ e.preventDefault(); b.click(); }
+  } else if(e.key==="Enter"){
+    var a=stage.querySelector("button.act:not(:disabled)");
+    if(a && (!tg || tg===document.body || !stage.contains(tg) || tg===a)){ e.preventDefault(); a.click(); }
+  }
+});
+$("btn-start").addEventListener("click", tryStart);
+$("btn-quit").addEventListener("click", function(){ if(G && !G.over) finish("中途結束"); });
+
+/* ============================================================
+   十一、成績上傳（Google 試算表）
+   ============================================================ */
+var IP="";
+(function(){
+  try{
+    var ctl = window.AbortController ? new AbortController() : null;
+    if(ctl) setTimeout(function(){ ctl.abort(); }, 3500);
+    fetch("https://api.ipify.org?format=json", ctl?{signal:ctl.signal}:{}).then(function(r){ return r.json(); })
+      .then(function(o){ IP=(o&&o.ip)||""; }).catch(function(){});
+  }catch(e){}
+})();
+function endpoint(){ return (ENDPOINT||"").trim(); }
+function token(){ return (TOKEN||"").trim(); }
+function withToken(url, extra){
+  var q=[]; if(extra) q.push(extra); if(token()) q.push("token="+encodeURIComponent(token()));
+  return q.length ? url+(url.indexOf("?")<0?"?":"&")+q.join("&") : url;
+}
+function setSync(msg, cls){
+  [$("sync"), $("sync2")].forEach(function(el){ if(!el) return; el.textContent=msg||""; el.className="sync"+(cls?" "+cls:""); });
+}
+function queueGet(){ try{ return JSON.parse(lsGet(LS.q,"[]"))||[]; }catch(e){ return []; } }
+function queueSet(a){ lsSet(LS.q, JSON.stringify(a.slice(-80))); }
+function send(rec){
+  var url=endpoint(); if(!url) return Promise.reject(new Error("no-endpoint"));
+  var payload={}; for(var k in rec) if(Object.prototype.hasOwnProperty.call(rec,k)) payload[k]=rec[k];
+  if(!payload.ip) payload.ip=IP;
+  payload.token=token();
+  var body=JSON.stringify(payload);
+  return fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+    .then(function(r){ return r.json(); })
+    .then(function(o){ if(o&&o.ok) return o; var m=(o&&o.error)?o.error:"server"; var err=new Error(m); err.fatal=/token/.test(m); throw err; })
+    .catch(function(err){
+      if(err&&err.fatal) throw err;
+      return fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:body})
+        .then(function(){ return {ok:true, blind:true}; });
+    });
+}
+function upload(rec){
+  if(!endpoint()){ setSync("尚未設定試算表網址，本次成績只顯示在畫面上。"); return; }
+  setSync("成績上傳中…","busy");
+  send(rec).then(function(o){
+    setSync(o.blind?"成績已送出（無法確認結果，請開試算表查看）。":"成績已寫入 Google 試算表。","ok");
+  }, function(err){
+    if(err&&err.fatal){ setSync("成績沒有寫入（通行碼不符），請通知老師。","bad"); return; }
+    var q=queueGet(); q.push(rec); queueSet(q);
+    setSync("上傳失敗，已暫存在本機（共 "+q.length+" 筆），連上網後按「補傳待上傳成績」。","bad");
+  });
+}
+function flushQueue(){
+  var q=queueGet();
+  if(!q.length){ setSync("目前沒有待上傳的成績。"); return; }
+  if(!endpoint()){ setSync("尚未設定試算表網址，無法補傳。","bad"); return; }
+  setSync("補傳 "+q.length+" 筆成績…","busy");
+  var left=[], i=0;
+  (function next(){
+    if(i>=q.length){ queueSet(left); setSync(left.length?"仍有 "+left.length+" 筆補傳失敗。":"待上傳成績已全部補傳完成。", left.length?"bad":"ok"); return; }
+    var rec=q[i++]; send(rec).then(next, function(){ left.push(rec); next(); });
+  })();
+}
+$("btn-flush").addEventListener("click", flushQueue);
+$("btn-test").addEventListener("click", function(){
+  if(!endpoint()){ setSync("尚未設定試算表網址：請老師把 Apps Script 網址貼進檔案裡的 ENDPOINT。","bad"); return; }
+  setSync("測試中…","busy");
+  fetch(withToken(endpoint(),"top=1")).then(function(r){ return r.json(); }).then(function(o){
+    if(o&&o.ok) setSync("連線成功，試算表裡目前有 "+o.count+" 筆紀錄。","ok");
+    else setSync("連上了，但試算表回覆："+((o&&o.error)||"未知錯誤"),"bad");
+  }).catch(function(){ setSync("連不上試算表。請確認網址正確，且部署時「誰可以存取」設為「任何人」。","bad"); });
+});
+function loadLeaderboard(){
+  var url=endpoint(), msg=$("lb-msg"), tb=$("lb-table"); tb.innerHTML="";
+  if(!url){ msg.textContent="尚未設定試算表網址，無法讀取排行榜。"; return; }
+  msg.textContent="讀取中…";
+  fetch(withToken(url,"top=15")).then(function(r){ return r.json(); }).then(function(o){
+    if(o&&o.ok===false&&/token/.test(o.error||"")){ msg.textContent="通行碼不符，無法讀取排行榜。"; return; }
+    if(!o||!o.ok||!o.list) throw new Error("bad");
+    if(!o.list.length){ msg.textContent="試算表裡還沒有成績。"; return; }
+    msg.textContent="共 "+o.count+" 筆紀錄，以下為每個人的最高分（同分時間較短者在前）。";
+    tb.innerHTML="<tr><th></th><th>姓名</th><th>班級</th><th>學校</th><th class='sc'>最高分</th><th class='sc'>時間</th></tr>"+
+      o.list.map(function(x,i){ return "<tr><td class='n'>"+(i+1)+"</td><td>"+esc(x.name||"")+"</td><td>"+esc(x.cls||"")+"</td><td>"+esc(x.school||"")+
+        "</td><td class='sc'>"+x.score+"</td><td class='sc'>"+fmt(x.seconds||0)+"</td></tr>"; }).join("");
+  }).catch(function(){ msg.textContent="讀不到排行榜。請確認網址正確，且部署時「誰可以存取」設為「任何人」。"; });
+}
+$("lb-box").addEventListener("toggle", function(){ if($("lb-box").open) loadLeaderboard(); });
+
+/* ============================================================
+   十二、課文參考區與啟動
+   ============================================================ */
+$("lesson-text").innerHTML="<h4>課文：成果發表會</h4>"+TEXT.map(function(t){ return "<p><span class='sp'>"+esc(t[0])+"：</span>"+esc(t[1])+"</p>"; }).join("")+
+  "<h4>短文：麗安的日記</h4>"+DIARY.map(function(p){ return "<p>　　"+esc(p)+"</p>"; }).join("");
+$("vocab-table").innerHTML="<tr><th></th><th>生詞</th><th>注音</th><th>拼音</th><th>英譯</th></tr>"+
+  WORDS.map(function(o){ return "<tr><td class='n'>"+o.n+"</td><td class='w'>"+esc(o.w)+"</td><td>"+esc(o.z)+"</td><td>"+esc(o.p)+"</td><td>"+esc(o.e)+"</td></tr>"; }).join("");
+$("read-chips").innerHTML=READ.map(function(h){ return "<span class='hz'>"+h[0]+"<small>"+h[1]+"</small></span>"; }).join("");
+
+$("f-school").value=lsGet(LS.sc,DEFAULT_SCHOOL)||DEFAULT_SCHOOL;
+$("f-class").value=lsGet(LS.cl,DEFAULT_CLASS)||DEFAULT_CLASS;
+$("f-name").value=lsGet(LS.nm,"");
+try{ var op=JSON.parse(lsGet(LS.opt,"{}")); ["o-zy","o-tts","o-sfx"].forEach(function(id){ if(id in op) $(id).checked=!!op[id]; }); }catch(e){}
+["o-zy","o-tts","o-sfx"].forEach(function(id){ $(id).addEventListener("change", function(){
+  var o={}; ["o-zy","o-tts","o-sfx"].forEach(function(k){ o[k]=$(k).checked; }); lsSet(LS.opt, JSON.stringify(o));
+  if(id==="o-zy" && P){ if(P.ph===0) renderIng(); else if(P.ph===3) renderConn(); }
+}); });
+$("f-name").addEventListener("keydown", function(e){ if(e.key==="Enter") tryStart(); });
+
+showTitle();
+})();
+</script>
+</body>
+</html>
